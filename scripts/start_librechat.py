@@ -54,6 +54,8 @@ def write_env(updates: dict[str, str], remove: set[str] | None = None) -> None:
 
 
 def ensure_configuration() -> dict[str, str]:
+    secret_dir = ROOT / ".secrets"
+    secret_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     values = read_env()
     defaults = {
         "ADO_ORGANIZATION": "ab-org",

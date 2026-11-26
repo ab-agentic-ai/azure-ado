@@ -11,7 +11,7 @@ A read-only assistant for inspecting Azure DevOps configuration, served through 
 - Variable/library groups, including pipeline access and security permissions
 - Project environments and pipeline authorization
 
-The ADO adapter uses deterministic prompt matching and read-only REST calls. It uses the local Qwen3 open model to summarize results, then displays a readable table. If the model is unavailable, it falls back to a readable table without sending ADO data off the Mac. The ADO adapter does not change Azure DevOps configuration.
+DevOps-Agent uses local Qwen3 to map natural-language requests to a fixed set of read-only Azure DevOps operations and resolve follow-up references from recent turns. The backend makes the REST calls and renders the returned ADO data directly; Qwen cannot execute shell commands or modify ADO. If Qwen is unavailable, the adapter falls back to deterministic topic matching and readable tables.
 
 ## Start LibreChat
 
@@ -38,13 +38,13 @@ docker compose -f docker-compose.yml -f docker-compose.librechat.yml --profile l
 ## Connect Azure DevOps
 
 1. Open the printed LibreChat URL and sign in with the account you created.
-2. Choose **Azure DevOps Read-only** as the endpoint.
+2. Choose **DevOps-Agent** as the endpoint.
 3. When LibreChat asks for the endpoint API key, enter your Azure DevOps PAT. The PAT is used as the Bearer credential for the read-only ADO query and is encrypted in LibreChat's MongoDB store.
 4. Ask for projects directly, or include a project in the request, such as `list repositories in project My Project`. You may set `ADO_DEFAULT_PROJECT` in `.env` if you usually query one project.
 
 ## Local open model
 
-The API uses **Qwen3 1.7B** in a local Ollama container to turn Azure DevOps results into a concise explanation plus a readable table. The model stays behind the API and is not shown as a separate LibreChat chat endpoint, so new chats go through Azure DevOps instead of giving generic model answers. No provider account or API key is needed, and ADO results stay on the Mac. Model inference is CPU-only in Docker Desktop on macOS, so answers may take longer than a hosted model. This is a compact model; review important permission/security interpretations against the table.
+**Qwen3 1.7B** runs in a local Ollama container. It interprets ADO requests and recent conversation context; the adapter executes only whitelisted read-only ADO queries using the PAT supplied to DevOps-Agent and renders the exact returned rows in readable tables. DevOps-Agent also keeps a small local memory of each user's most recently selected project and query type, so follow-ups in a new chat can use that context. It does not train or change model weights, and it does not store ADO result sets in this memory. This memory is stored in the ignored `.secrets/devops-agent-memory.sqlite3` file. No provider account or API key is needed, and ADO data stays on the Mac. In Docker Desktop on macOS, inference is CPU-only and may be slower than a hosted model. Review important permission/security interpretations against the exact table.
 
 The Qwen3 1.7B model is about 1.4 GB and licensed under Apache 2.0. See [Ollama's Qwen3 model card](https://ollama.com/library/qwen3:1.7b) and [Ollama's Docker image documentation](https://ollama.com/blog/ollama-is-now-available-as-an-official-docker-image).
 
