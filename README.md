@@ -51,7 +51,7 @@ Open the local Vite URL, usually `http://localhost:5173`. Connection settings de
 
 ## GitHub Pages
 
-The included Actions workflow builds the `frontend` directory and deploys it to Pages when changes reach `main`. In the GitHub repository, open **Settings → Pages** and select **GitHub Actions** as the build and deployment source. The generated site is available at `https://<owner>.github.io/azure-ado/`.
+The repository is public so GitHub Pages is available on the free plan. The included Actions workflow builds the `frontend` directory and deploys it whenever changes reach `main`. In **Settings → Pages**, select **GitHub Actions** as the build and deployment source. The site URL for this repository is https://ab-agentic-ai.github.io/azure-ado/.
 
 For a Pages site to reach your Mac mini API, the API must have a network route and the backend CORS allowlist must include that exact Pages origin. By default the API binds to localhost and accepts local Vite origins only. Do not expose port 8000 directly to the public internet. If using your existing Cloudflare setup, route the API through an authenticated Cloudflare Access application and set `CORS_ORIGINS` to the Pages origin. The frontend sends browser credentials so a Cloudflare Access session can authorize the request. Example:
 
