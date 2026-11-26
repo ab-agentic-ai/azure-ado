@@ -7,4 +7,5 @@ __pycache__/
 *.tsbuildinfo
 .env
 .secrets/
+.superpowers/
 .DS_Store

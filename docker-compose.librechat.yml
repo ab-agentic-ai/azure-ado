@@ -1,0 +1,115 @@
+services:
+  librechat-mongodb:
+    image: mongo:8.0.20
+    profiles: ["librechat"]
+    command: ["mongod", "--noauth"]
+    volumes:
+      - librechat_mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand('ping').ok", "127.0.0.1:27017/test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  librechat-meilisearch:
+    image: getmeili/meilisearch:v1.35.1
+    profiles: ["librechat"]
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${LIBRECHAT_MEILI_MASTER_KEY:?Run scripts/start_librechat.py to generate local LibreChat keys}
+    volumes:
+      - librechat_meili:/meili_data
+    restart: unless-stopped
+
+  librechat-vectordb:
+    image: pgvector/pgvector:0.8.0-pg15-trixie
+    profiles: ["librechat"]
+    environment:
+      POSTGRES_DB: librechat_rag
+      POSTGRES_USER: librechat
+      POSTGRES_PASSWORD: ${LIBRECHAT_RAG_DB_PASSWORD:?Run scripts/start_librechat.py to generate local LibreChat keys}
+    volumes:
+      - librechat_vectordb:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  librechat-rag:
+    image: registry.librechat.ai/librechat-ai/librechat-rag-api-dev-lite:latest
+    profiles: ["librechat"]
+    environment:
+      DB_HOST: librechat-vectordb
+      DB_PORT: "5432"
+      POSTGRES_DB: librechat_rag
+      POSTGRES_USER: librechat
+      POSTGRES_PASSWORD: ${LIBRECHAT_RAG_DB_PASSWORD:?Run scripts/start_librechat.py to generate local LibreChat keys}
+      RAG_PORT: "8000"
+      OPENAI_API_KEY: user_provided
+    depends_on:
+      - librechat-vectordb
+    restart: unless-stopped
+
+  librechat:
+    image: registry.librechat.ai/librechat-ai/librechat:v0.8.9
+    profiles: ["librechat"]
+    ports:
+      - "127.0.0.1:${LIBRECHAT_PORT:-3080}:3080"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3080"
+      NODE_ENV: production
+      MONGO_URI: mongodb://librechat-mongodb:27017/LibreChat
+      MEILI_HOST: http://librechat-meilisearch:7700
+      RAG_API_URL: http://librechat-rag:8000
+      LIBRECHAT_TEMP_CREDENTIALS_PATH: /app/data/.env.temp
+      CREDS_KEY: ${LIBRECHAT_CREDS_KEY:?Run scripts/start_librechat.py to generate local LibreChat keys}
+      CREDS_IV: ${LIBRECHAT_CREDS_IV:?Run scripts/start_librechat.py to generate local LibreChat keys}
+      JWT_SECRET: ${LIBRECHAT_JWT_SECRET:?Run scripts/start_librechat.py to generate local LibreChat keys}
+      JWT_REFRESH_SECRET: ${LIBRECHAT_JWT_REFRESH_SECRET:?Run scripts/start_librechat.py to generate local LibreChat keys}
+      DOMAIN_CLIENT: ${LIBRECHAT_DOMAIN_CLIENT:-http://localhost:3080}
+      DOMAIN_SERVER: ${LIBRECHAT_DOMAIN_SERVER:-http://localhost:3080}
+      SESSION_COOKIE_SECURE: ${LIBRECHAT_SESSION_COOKIE_SECURE:-false}
+      ALLOW_REGISTRATION: "false"
+      ALLOW_EMAIL_LOGIN: "true"
+      ALLOW_UNVERIFIED_EMAIL_LOGIN: "true"
+      ALLOW_SOCIAL_LOGIN: "false"
+      ALLOW_SOCIAL_REGISTRATION: "false"
+      NO_INDEX: "true"
+      TRUST_PROXY: "1"
+      SCHEDULES_SINGLE_PROCESS: "true"
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+      - librechat_data:/app/data
+      - librechat_uploads:/app/uploads
+      - librechat_logs:/app/logs
+    depends_on:
+      librechat-mongodb:
+        condition: service_healthy
+      librechat-meilisearch:
+        condition: service_started
+      librechat-rag:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3080/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  cloudflared-librechat:
+    image: cloudflare/cloudflared:latest
+    profiles: ["librechat"]
+    command: ["tunnel", "--no-autoupdate", "--url", "http://librechat:3080"]
+    depends_on:
+      librechat:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  librechat_mongodb:
+  librechat_meili:
+  librechat_vectordb:
+  librechat_data:
+  librechat_uploads:
+  librechat_logs:

@@ -1,1 +1,1 @@
-window.ADO_MCP_CONFIG = Object.freeze({ apiBaseUrl: "https://version-improve-exclusion-manor.trycloudflare.com" });
+window.ADO_MCP_CONFIG = Object.freeze({ apiBaseUrl: "http://localhost:8000" });
