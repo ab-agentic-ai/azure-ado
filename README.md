@@ -17,7 +17,7 @@ The first version uses deterministic prompt matching and REST-backed summaries; 
 Prerequisites: Docker Desktop and Azure CLI (`brew install azure-cli`). For SSO, sign in on the Mac mini first:
 
 ```sh
-az login
+az login --scope "499b84ac-1321-427f-aa17-267ca6975798/.default"
 ```
 
 Then start the API from this repository:
@@ -27,7 +27,7 @@ docker compose up --build -d
 curl http://localhost:8000/api/health
 ```
 
-The API binds to `127.0.0.1:8000`. Azure CLI credentials are mounted read-only into the container for SSO. For PAT mode, paste a token into the frontend connection settings; the token is sent only for that request and then cleared. Grant only the Azure DevOps scopes required for the resources you need to inspect (typically project and graph read, code read, and build read).
+The API binds to `127.0.0.1:8000`. Azure CLI credentials are mounted read-only and copied into the container's temporary cache for SSO. The host credential folder remains read-only. For PAT mode, paste a token into the frontend connection settings; the token is sent only for that request and then cleared. Grant only the Azure DevOps scopes required for the resources you need to inspect (typically project and graph read, code read, and build read).
 
 If Docker cannot read your mounted Azure CLI files, start Compose with your macOS user and group IDs: `LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) docker compose up --build -d`.
 
@@ -54,7 +54,7 @@ The included Actions workflow builds the `frontend` directory and deploys it to 
 For a Pages site to reach your Mac mini API, the API must have a network route and the backend CORS allowlist must include that exact Pages origin. By default the API binds to localhost and accepts local Vite origins only. Do not expose port 8000 directly to the public internet. If using your existing Cloudflare setup, route the API through an authenticated Cloudflare Access application and set `CORS_ORIGINS` to the Pages origin. The frontend sends browser credentials so a Cloudflare Access session can authorize the request. Example:
 
 ```sh
-CORS_ORIGINS=https://<owner>.github.io docker compose up --build -d
+CORS_ORIGINS=https://your-owner.github.io docker compose up --build -d
 ```
 
 Keep tunnel credentials and DNS configuration outside this repository.
