@@ -4,14 +4,38 @@ A read-only assistant for inspecting Azure DevOps configuration, served through 
 
 ## What it can inspect
 
-- Azure DevOps projects
-- Project and repository permissions
-- Repositories and repository policies
-- Agent pools
-- Variable/library groups, including pipeline access and security permissions
-- Project environments and pipeline authorization
+DevOps-Agent routes natural-language questions through local Qwen3 to a fixed read-only Azure DevOps catalog. Current coverage includes:
 
-DevOps-Agent uses local Qwen3 to map natural-language requests to a fixed set of read-only Azure DevOps operations and resolve follow-up references from recent turns. The backend makes the REST calls and renders the returned ADO data directly; Qwen cannot execute shell commands or modify ADO. If Qwen is unavailable, the adapter falls back to deterministic topic matching and readable tables.
+- Organization projects and project metadata
+- Project teams and member names
+- Repositories, branches/refs, pull requests, and repository policies
+- Pipeline definitions, read-only pipeline settings (repository, branch, YAML path, queue, trigger types, variable names), and recent pipeline runs
+- Work items (type, state, assignee, priority, iteration, area, and timestamps), plus area and iteration paths
+- Test plans and test runs
+- Artifact feeds and package metadata
+- Agent pools
+- Environments and pipeline authorization
+- Variable group names, descriptions, variable keys, and pipeline authorization (variable values are never returned)
+- Project security permissions, with action names and explicit/effective/inherited allow/deny where ADO returns it
+- Project-scoped security groups and their member names
+
+Ask for focused lists or reports such as `project overview for Agentic-Ai`, `release readiness in Agentic-Ai`, `delivery flow for Agentic-Ai`, or `access review for Agentic-Ai`. Release readiness surfaces policy configuration counts, recent run outcomes, environment access, work items, and branch inventory. Delivery flow summarizes pipeline runs, work items, pull requests, iterations, and branches. These are evidence summaries, not compliance certifications.
+
+For details, ask `pipeline project settings in Agentic-Ai`, `permission groups in Agentic-Ai`, or `project details for Agentic-Ai`. Explicit project names in the latest message take precedence over remembered context.
+
+Qwen selects an operation from a fixed allowlist and helps resolve follow-up context. The Python backend validates the selection, makes the REST calls, and renders the returned ADO data; Qwen cannot choose arbitrary URLs, run shell commands, or modify ADO. Explicit resource names and named report requests also have deterministic routing if Qwen is unavailable. The model does not train on conversations. Only a small local project/topic hint is remembered; ADO result sets are not persisted in that memory.
+
+### Automatic recovery and learning
+
+The agent retries transient network errors and ADO throttling/server responses at most twice, honoring a bounded `Retry-After`. Identity responses are normalized whether ADO returns a list or a wrapped object; if identity lookup still fails, permission rows remain available with an unresolved-identity label instead of crashing the whole response. Unexpected parser/API failures are caught and shown as readable errors rather than provider HTTP 500s.
+
+For future diagnosis, the local SQLite memory stores only a hashed user key, operation category, sanitized error category, occurrence count, and timestamp. A successful query clears that operation's stored issue. It never stores prompts, PATs, identities, or ADO results. Qwen model weights are not modified and the agent does not rewrite or execute code; automatic recovery is limited to these predefined safe behaviors.
+
+### Bounds and access behavior
+
+Collection requests are paged and capped at 500 records per operation. Composite reports show a compact sample; ask for a focused resource query to see more detail. Azure DevOps may restrict results based on the PAT scopes, project membership, service configuration, or API version. When a report section is denied or unavailable, it is labeled instead of being presented as an empty result. An empty permissions result only means no non-empty entries were visible in the requested scope; verify in ADO if you expected grants.
+
+The agent is read-only. It does not retrieve variable values, service connection credentials, secret-bearing configuration, or pipeline logs. Work item queries use fixed, bounded read templates. No tool can bypass ADO authorization, service limits, or missing API support.
 
 ## Start LibreChat
 
@@ -72,4 +96,4 @@ GitHub Pages is not used for LibreChat. The UI needs the LibreChat server and da
 - `POST /api/chat` — legacy JSON chat route (PAT or Azure CLI SSO)
 - `GET /v1/models` and `POST /v1/chat/completions` — internal OpenAI-compatible routes used by LibreChat
 
-The API is read-only. Query responses are bounded to 200 items and do not return variable values or secrets.
+The API is read-only. Individual collection calls are capped at 500 records; composite reports show a short sample. Variable values, service connection credentials, secret-bearing configuration, and pipeline logs are not returned.
