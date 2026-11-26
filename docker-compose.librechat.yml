@@ -66,11 +66,13 @@ services:
       HOST: 0.0.0.0
       PORT: "3080"
       NODE_ENV: production
+      APP_TITLE: AChat
       GOOGLE_KEY: ${GOOGLE_KEY:?Set GOOGLE_KEY in .env to enable Gemini}
       GOOGLE_MODELS: ${GOOGLE_MODELS:-gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-3.6-flash,gemini-3.8-flash}
       MONGO_URI: mongodb://librechat-mongodb:27017/LibreChat
       MEILI_HOST: http://librechat-meilisearch:7700
       RAG_API_URL: http://librechat-rag:8000
+      LIBRECHAT_CODE_BASEURL: http://api:3112
       LIBRECHAT_TEMP_CREDENTIALS_PATH: /app/data/.env.temp
       CREDS_KEY: ${LIBRECHAT_CREDS_KEY:?Run scripts/start_librechat.py to generate local LibreChat keys}
       CREDS_IV: ${LIBRECHAT_CREDS_IV:?Run scripts/start_librechat.py to generate local LibreChat keys}
@@ -79,7 +81,7 @@ services:
       DOMAIN_CLIENT: ${LIBRECHAT_DOMAIN_CLIENT:-http://localhost:3080}
       DOMAIN_SERVER: ${LIBRECHAT_DOMAIN_SERVER:-http://localhost:3080}
       SESSION_COOKIE_SECURE: ${LIBRECHAT_SESSION_COOKIE_SECURE:-false}
-      ALLOW_REGISTRATION: "false"
+      ALLOW_REGISTRATION: "true"
       ALLOW_EMAIL_LOGIN: "true"
       ALLOW_UNVERIFIED_EMAIL_LOGIN: "true"
       ALLOW_SOCIAL_LOGIN: "false"
@@ -90,6 +92,7 @@ services:
     volumes:
       - ./librechat.yaml:/app/librechat.yaml:ro
       - librechat_data:/app/data
+      - librechat_images:/app/client/public/images
       - librechat_uploads:/app/uploads
       - librechat_logs:/app/logs
     depends_on:
@@ -124,5 +127,11 @@ volumes:
   librechat_meili:
   librechat_vectordb:
   librechat_data:
+  librechat_images:
   librechat_uploads:
   librechat_logs:
+
+networks:
+  default:
+    external: true
+    name: ab-agentic-ai-private

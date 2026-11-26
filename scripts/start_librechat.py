@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import json
 import secrets
 import subprocess
 import time
@@ -14,6 +15,8 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1]
 ENV_FILE = ROOT / ".env"
 URL_FILE = ROOT / ".secrets" / "librechat-url.txt"
+CODE_INTERPRETER_ROOT = ROOT / ".cache" / "code-interpreter-v1.0.0"
+CODE_INTERPRETER_TAG = "v1.0.0"
 COMPOSE = [
     "docker", "compose", "-f", "docker-compose.yml", "-f", "docker-compose.librechat.yml",
     "--profile", "librechat",
@@ -104,11 +107,13 @@ def ensure_configuration() -> dict[str, str]:
         "LIBRECHAT_SESSION_COOKIE_SECURE": "false",
         "CORS_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
         "API_PORT": "8000",
+        "APP_TITLE": "AChat",
     }
     values["CORS_ORIGINS"] = defaults["CORS_ORIGINS"]
     for key, value in defaults.items():
         if key not in values:
             values[key] = value
+    values["APP_TITLE"] = "AChat"
 
     for key, size in (
         ("LIBRECHAT_CREDS_KEY", 32),
@@ -125,14 +130,129 @@ def ensure_configuration() -> dict[str, str]:
     return values
 
 
-def command(args: list[str], env: dict[str, str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
+def command(
+    args: list[str],
+    env: dict[str, str],
+    *,
+    capture: bool = False,
+    cwd: Path = ROOT,
+) -> subprocess.CompletedProcess[str]:
     process_env = os.environ.copy()
     process_env.update(env)
-    return subprocess.run(args, cwd=ROOT, env=process_env, check=True, text=True, capture_output=capture)
+    return subprocess.run(args, cwd=cwd, env=process_env, check=True, text=True, capture_output=capture)
 
 
 def compose(args: list[str], env: dict[str, str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
     return command([*COMPOSE, *args], env, capture=capture)
+
+
+def code_compose(args: list[str], env: dict[str, str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
+    return command(
+        [
+            "docker", "compose", "--project-name", "ab-agentic-code",
+            "-f", "docker-compose.yaml",
+            "-f", "docker-compose.mac.yml",
+            "-f", str(ROOT / "docker-compose.code-interpreter.yml"),
+            *args,
+        ],
+        env,
+        capture=capture,
+        cwd=CODE_INTERPRETER_ROOT,
+    )
+
+
+def ensure_code_interpreter_checkout(env: dict[str, str]) -> None:
+    if not (CODE_INTERPRETER_ROOT / ".git").exists():
+        CODE_INTERPRETER_ROOT.parent.mkdir(parents=True, exist_ok=True)
+        command(
+            [
+                "git", "clone", "--depth", "1", "--branch", CODE_INTERPRETER_TAG,
+                "https://github.com/LibreChat-AI/code-interpreter.git",
+                str(CODE_INTERPRETER_ROOT),
+            ],
+            env,
+        )
+
+    tag = subprocess.run(
+        ["git", "-C", str(CODE_INTERPRETER_ROOT), "describe", "--tags", "--exact-match"],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    if tag != CODE_INTERPRETER_TAG:
+        raise SystemExit(
+            f"Code Interpreter source is {tag}, expected pinned tag {CODE_INTERPRETER_TAG}."
+        )
+
+    # Keep this development-mode API private to the Docker network. Its host
+    # diagnostic ports are loopback-only in docker-compose.code-interpreter.yml.
+    code_env_path = CODE_INTERPRETER_ROOT / ".env"
+    code_values: dict[str, str] = {}
+    if code_env_path.exists():
+        for raw in code_env_path.read_text().splitlines():
+            line = raw.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                code_values[key.strip()] = value.strip().strip("\"'")
+    code_values.update(
+        {
+            "LOCAL_MODE": "true",
+            "KVM_ENABLED": "false",
+            "CODEAPI_HARDENED_SANDBOX_MODE": "true",
+        }
+    )
+    for key, size in (
+        ("CODEAPI_BRIDGE_TOKEN", 32),
+        ("CODEAPI_INTERNAL_SERVICE_TOKEN", 32),
+        ("CODEAPI_EGRESS_GRANT_SECRET", 32),
+        ("CODEAPI_S3_ACCESS_KEY", 16),
+        ("CODEAPI_S3_SECRET_KEY", 32),
+    ):
+        if not code_values.get(key):
+            code_values[key] = secrets.token_hex(size)
+    code_env_path.write_text("\n".join(f"{key}={value}" for key, value in code_values.items()) + "\n")
+    code_env_path.chmod(0o600)
+    s3_config_path = CODE_INTERPRETER_ROOT / "s3-config.json"
+    s3_config_path.write_text(
+        json.dumps(
+            {
+                "identities": [
+                    {
+                        "name": "librechat-code-interpreter",
+                        "credentials": [
+                            {
+                                "accessKey": code_values["CODEAPI_S3_ACCESS_KEY"],
+                                "secretKey": code_values["CODEAPI_S3_SECRET_KEY"],
+                            }
+                        ],
+                        "actions": ["Admin", "Read", "Write", "List", "Tagging"],
+                    }
+                ]
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    s3_config_path.chmod(0o600)
+
+
+def ensure_private_network(env: dict[str, str]) -> None:
+    inspect = subprocess.run(
+        ["docker", "network", "inspect", "ab-agentic-ai-private"],
+        cwd=ROOT,
+        env={**os.environ, **env},
+        capture_output=True,
+        text=True,
+    )
+    if inspect.returncode != 0:
+        command(["docker", "network", "create", "ab-agentic-ai-private"], env, capture=True)
+
+
+def start_code_interpreter(env: dict[str, str]) -> None:
+    ensure_private_network(env)
+    ensure_code_interpreter_checkout(env)
+    code_compose(["up", "--build", "-d"], env)
+    wait_for_http("http://127.0.0.1:3112/v1/health", "LibreChat Code Interpreter", timeout=600)
 
 
 def wait_for_http(url: str, description: str, timeout: int = 180) -> None:
@@ -190,6 +310,7 @@ def main() -> int:
     environment["LOCAL_UID"] = str(os.getuid())
     environment["LOCAL_GID"] = str(os.getgid())
 
+    start_code_interpreter(environment)
     command(["python3", "scripts/build_librechat_custom.py"], environment)
     compose(
         [

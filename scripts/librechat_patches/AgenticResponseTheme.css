@@ -1,0 +1,189 @@
+/* Shared response styling for every LibreChat model and Marketplace agent. */
+:root {
+  --agentic-prose-violet: 109 40 217;
+  --agentic-prose-blue: 37 99 235;
+  --agentic-prose-teal: 13 148 136;
+  --agentic-prose-green: 5 150 105;
+  --agentic-prose-amber: 180 83 9;
+  --agentic-prose-red: 220 38 38;
+}
+
+html.dark {
+  --agentic-prose-violet: 196 181 253;
+  --agentic-prose-blue: 125 211 252;
+  --agentic-prose-teal: 94 234 212;
+  --agentic-prose-green: 110 231 183;
+  --agentic-prose-amber: 253 230 138;
+  --agentic-prose-red: 252 165 165;
+}
+
+.markdown.prose h1,
+.markdown.prose h2,
+.markdown.prose h3,
+.markdown.prose h4 {
+  text-wrap: pretty;
+}
+
+.markdown.prose h1 {
+  color: rgb(var(--text-primary));
+  letter-spacing: -0.025em;
+}
+
+.markdown.prose h2 {
+  border-inline-start: 3px solid rgb(var(--accent-primary));
+  border-radius: 2px;
+  color: rgb(var(--text-primary));
+  padding-inline-start: 0.7em;
+}
+
+.markdown.prose h3 {
+  color: rgb(var(--accent-primary));
+}
+
+.markdown.prose a {
+  text-decoration-color: rgb(var(--link) / 45%);
+  text-underline-offset: 0.18em;
+  transition: color 140ms ease, text-decoration-color 140ms ease;
+}
+
+.markdown.prose a:hover {
+  color: rgb(var(--link-hover));
+  text-decoration-color: currentColor;
+}
+
+.markdown.prose ul > li::marker,
+.markdown.prose ol > li::marker {
+  color: rgb(var(--accent-primary));
+  font-weight: 700;
+}
+
+.markdown.prose blockquote {
+  background: rgb(var(--surface-secondary));
+  border-inline-start: 3px solid rgb(var(--prose-quote-bar));
+  border-radius: 0 0.7rem 0.7rem 0;
+  padding: 0.15rem 1rem;
+}
+
+.markdown.prose table {
+  border: 1px solid rgb(var(--border-light));
+  border-collapse: separate;
+  border-radius: 0.8rem;
+  border-spacing: 0;
+  overflow: hidden;
+}
+
+.markdown.prose thead {
+  background: rgb(var(--surface-secondary));
+}
+
+.markdown.prose thead th {
+  color: rgb(var(--text-primary));
+}
+
+.markdown.prose tbody tr:nth-child(even) {
+  background: rgb(var(--surface-primary-alt));
+}
+
+.markdown.prose :not(pre) > code {
+  background: rgb(var(--surface-code-inline));
+  border: 1px solid rgb(var(--border-light));
+  border-radius: 0.4rem;
+  color: rgb(var(--accent-primary));
+  padding: 0.12em 0.4em;
+}
+
+.markdown.prose pre {
+  background: rgb(var(--surface-code));
+  border: 1px solid rgb(var(--border-medium));
+  border-radius: 0.85rem;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
+  overflow-x: auto;
+}
+
+.markdown.prose pre code {
+  background: rgb(var(--surface-code-body));
+  color: rgb(var(--text-primary));
+}
+
+.markdown.prose .hljs-keyword,
+.markdown.prose .hljs-selector-tag,
+.markdown.prose .hljs-literal,
+.markdown.prose .hljs-built_in,
+.markdown.prose .hljs-type {
+  color: rgb(var(--agentic-prose-violet));
+}
+
+.markdown.prose .hljs-string,
+.markdown.prose .hljs-attr,
+.markdown.prose .hljs-addition,
+.markdown.prose .hljs-regexp,
+.markdown.prose .hljs-template-tag {
+  color: rgb(var(--agentic-prose-green));
+}
+
+.markdown.prose .hljs-number,
+.markdown.prose .hljs-literal,
+.markdown.prose .hljs-symbol,
+.markdown.prose .hljs-bullet {
+  color: rgb(var(--agentic-prose-amber));
+}
+
+.markdown.prose .hljs-title,
+.markdown.prose .hljs-section,
+.markdown.prose .hljs-function,
+.markdown.prose .hljs-name,
+.markdown.prose .hljs-selector-class {
+  color: rgb(var(--agentic-prose-blue));
+}
+
+.markdown.prose .hljs-variable,
+.markdown.prose .hljs-params,
+.markdown.prose .hljs-property {
+  color: rgb(var(--agentic-prose-teal));
+}
+
+.markdown.prose .hljs-deletion,
+.markdown.prose .hljs-doctag {
+  color: rgb(var(--agentic-prose-red));
+}
+
+.markdown.prose .hljs-comment,
+.markdown.prose .hljs-quote,
+.markdown.prose .hljs-meta {
+  color: rgb(var(--text-tertiary));
+}
+
+html.high-contrast .markdown.prose .hljs-keyword,
+html.high-contrast .markdown.prose .hljs-selector-tag,
+html.high-contrast .markdown.prose .hljs-literal,
+html.high-contrast .markdown.prose .hljs-built_in,
+html.high-contrast .markdown.prose .hljs-type,
+html.high-contrast .markdown.prose .hljs-string,
+html.high-contrast .markdown.prose .hljs-attr,
+html.high-contrast .markdown.prose .hljs-addition,
+html.high-contrast .markdown.prose .hljs-regexp,
+html.high-contrast .markdown.prose .hljs-template-tag,
+html.high-contrast .markdown.prose .hljs-number,
+html.high-contrast .markdown.prose .hljs-symbol,
+html.high-contrast .markdown.prose .hljs-bullet,
+html.high-contrast .markdown.prose .hljs-title,
+html.high-contrast .markdown.prose .hljs-section,
+html.high-contrast .markdown.prose .hljs-function,
+html.high-contrast .markdown.prose .hljs-name,
+html.high-contrast .markdown.prose .hljs-selector-class,
+html.high-contrast .markdown.prose .hljs-variable,
+html.high-contrast .markdown.prose .hljs-params,
+html.high-contrast .markdown.prose .hljs-property,
+html.high-contrast .markdown.prose .hljs-deletion,
+html.high-contrast .markdown.prose .hljs-doctag,
+html.high-contrast .markdown.prose .hljs-comment,
+html.high-contrast .markdown.prose .hljs-quote,
+html.high-contrast .markdown.prose .hljs-meta {
+  color: rgb(var(--text-primary));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markdown.prose a {
+    transition: none;
+  }
+}
