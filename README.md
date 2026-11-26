@@ -9,7 +9,7 @@ DevOps-Agent routes natural-language questions through local Qwen3 to a fixed re
 - Organization projects and project metadata
 - Project teams and member names
 - Repositories, branches/refs, pull requests, and repository policies
-- Pipeline definitions, read-only pipeline settings (repository, branch, YAML path, queue, trigger types, variable names), and recent pipeline runs
+- Pipeline project settings (security/general flags, run retention, build retention defaults and limits), definitions, and recent runs
 - Work items (type, state, assignee, priority, iteration, area, and timestamps), plus area and iteration paths
 - Test plans and test runs
 - Artifact feeds and package metadata
@@ -21,7 +21,7 @@ DevOps-Agent routes natural-language questions through local Qwen3 to a fixed re
 
 Ask for focused lists or reports such as `project overview for Agentic-Ai`, `release readiness in Agentic-Ai`, `delivery flow for Agentic-Ai`, or `access review for Agentic-Ai`. Release readiness surfaces policy configuration counts, recent run outcomes, environment access, work items, and branch inventory. Delivery flow summarizes pipeline runs, work items, pull requests, iterations, and branches. These are evidence summaries, not compliance certifications.
 
-For details, ask `pipeline project settings in Agentic-Ai`, `permission groups in Agentic-Ai`, or `project details for Agentic-Ai`. Explicit project names in the latest message take precedence over remembered context.
+For details, ask `pipeline project settings in Agentic-Ai`, `permission groups in Agentic-Ai`, or `project details for Agentic-Ai`. The pipeline settings report includes the general and retention controls shown under Project Settings → Pipelines → Settings, plus safe pipeline definition metadata. It never returns variable values. Explicit project names in the latest message take precedence over remembered context.
 
 Qwen selects an operation from a fixed allowlist and helps resolve follow-up context. The Python backend validates the selection, makes the REST calls, and renders the returned ADO data; Qwen cannot choose arbitrary URLs, run shell commands, or modify ADO. Explicit resource names and named report requests also have deterministic routing if Qwen is unavailable. The model does not train on conversations. Only a small local project/topic hint is remembered; ADO result sets are not persisted in that memory.
 

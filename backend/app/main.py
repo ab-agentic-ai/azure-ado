@@ -71,7 +71,7 @@ async def query_ado(
         client = AdoClient(organization, mode, pat)
         if topic in COMPOSITES:
             recipes = {
-                "project overview": ["project details", "teams", "repositories", "policies", "pipelines", "work items", "environments", "library groups", "agent pools"],
+                "project overview": ["project details", "teams", "project groups", "repositories", "branches", "pull requests", "policies", "pipelines", "pipeline settings", "work items", "areas", "iterations", "environments", "library groups", "agent pools", "test plans", "test runs", "feeds", "packages", "permissions"],
                 "release readiness": ["policies", "pipeline runs", "environments", "work items", "branches"],
                 "delivery flow": ["pipeline runs", "work items", "pull requests", "iterations", "branches"],
                 "access review": ["permissions", "environments", "library groups", "teams"],
@@ -146,6 +146,12 @@ async def query_ado(
             findings.append(f"Permission entries: {len(identities)}; identities unresolved: {unresolved}.")
     elif not data:
         answer = f"No {topic} found{label}."
+    elif topic == "pipeline settings":
+        available = [row["section"] for row in data if row.get("status") == "ok"]
+        unavailable = [row["section"] for row in data if row.get("status") != "ok"]
+        answer = f"Loaded {len(available)} pipeline settings sections for {project}."
+        if unavailable:
+            answer += " Unavailable sections: " + ", ".join(unavailable) + "."
     else:
         nouns = {"repositories": "repository", "projects": "project", "policies": "policy", "permissions": "permission entry", "work items": "work item", "pull requests": "pull request", "pipeline runs": "pipeline run", "pipeline settings": "pipeline", "test plans": "test plan", "test runs": "test run", "agent pools": "agent pool", "library groups": "variable group", "project groups": "project group"}
         noun = nouns.get(topic, topic)
@@ -262,7 +268,7 @@ def md_cell(value) -> str:
     if value is None or value == "":
         return "—"
     if isinstance(value, bool):
-        return "Yes" if value else "No"
+        return "🟢 Yes" if value else "⚪ No"
     if isinstance(value, list):
         return ", ".join(str(item) for item in value) if value else "None"
     if isinstance(value, dict):
@@ -275,6 +281,57 @@ def markdown_table(rows: list[dict], columns: list[tuple[str, str]]) -> str:
     separator = "| " + " | ".join("---" for _ in columns) + " |"
     body = ["| " + " | ".join(md_cell(row.get(key)) for key, _ in columns) + " |" for row in rows]
     return "\n".join([header, separator, *body])
+
+
+def status_badge(value, key: str = "") -> str:
+    """Use small, consistent visual status cues in Markdown responses."""
+    text = str(value or "").strip()
+    normalized = text.lower()
+    if key in {"isEnabled", "isBlocking", "openAccess"} and isinstance(value, bool):
+        return "🟢 **On**" if value else "⚪ **Off**"
+    if normalized in {"succeeded", "success", "completed", "active", "enabled", "allow", "effective allow", "explicit allow"}:
+        return f"🟢 **{text}**"
+    if normalized in {"failed", "failure", "rejected", "denied", "effective deny", "explicit deny", "error"}:
+        return f"🔴 **{text}**"
+    if normalized in {"inprogress", "in progress", "running", "pending", "queued", "warning", "partially succeeded"}:
+        return f"🟡 **{text}**"
+    if normalized in {"canceled", "cancelled", "notstarted", "not started", "disabled", "inactive"}:
+        return f"⚪ **{text}**"
+    return md_cell(value)
+
+
+def status_table(rows: list[dict], columns: list[tuple[str, str]]) -> str:
+    """Render status-like columns with consistent colored emoji badges."""
+    rendered = []
+    for row in rows:
+        rendered.append({key: status_badge(row.get(key), key) if key in {
+            "state", "result", "status", "isEnabled", "isBlocking", "openAccess", "isHosted", "isDefault", "isLocked"
+        } else md_cell(row.get(key)) for key, _ in columns})
+    return markdown_table(rendered, columns)
+
+
+def format_pipeline_settings(sections: list[dict]) -> str:
+    blocks = []
+    for section in sections:
+        title = section.get("section", "Pipeline settings")
+        if section.get("status") != "ok":
+            blocks.append(f"#### ⚠️ {title}\n\n> **Unavailable:** {section.get('error', 'ADO did not return this section.')}")
+            continue
+        items = section.get("items", [])
+        blocks.append(f"#### {title}")
+        if not items:
+            blocks.append("ℹ️ No records were returned for this section.")
+            continue
+        if title == "Pipeline definitions":
+            fields = [key for key in ("name", "id", "type", "queueStatus", "agentQueue", "repository", "defaultBranch", "yamlFile", "variableNames") if key in items[0]]
+            blocks.append(status_table(items[:20], [(key, key.replace("_", " ").title()) for key in fields]))
+            if section.get("truncated"):
+                blocks.append("_Additional definitions exist; narrow the query by pipeline name or folder._")
+        else:
+            fields = list(items[0].keys())
+            labels = {"setting": "Setting", "value": "Current", "minimum": "Minimum", "maximum": "Maximum", "daysToKeep": "Days to keep", "minimumToKeep": "Minimum to keep", "deleteBuildRecord": "Delete build record", "deleteTestResults": "Delete test results"}
+            blocks.append(status_table(items, [(key, labels.get(key, key.replace("_", " ").title())) for key in fields]))
+    return "\n\n".join(blocks)
 
 
 def format_ado_data(rows: list[dict], prompt: str = "") -> str:
@@ -307,9 +364,12 @@ def format_ado_data(rows: list[dict], prompt: str = "") -> str:
     }
     topic = detect_topic(prompt) if prompt else None
     asks_access = "permission" in prompt.lower() or "security" in prompt.lower()
-    if topic in columns and not (topic in {"library groups", "environments"} and asks_access):
+    if topic in columns and topic != "pipeline settings" and not (topic in {"library groups", "environments"} and asks_access):
         heading = topic.title()
-        return f"### {heading}\n\n{markdown_table(rows, columns[topic])}"
+        return f"### 📊 {heading}\n\n{status_table(rows, columns[topic])}"
+
+    if topic == "pipeline settings":
+        return format_pipeline_settings(rows)
 
     if topic == "permissions":
         entries = []
@@ -318,17 +378,17 @@ def format_ado_data(rows: list[dict], prompt: str = "") -> str:
             allowed, denied = row.get("effectiveAllow") or row.get("allow") or [], row.get("effectiveDeny") or row.get("deny") or []
             if allowed:
                 inherited = row.get("inheritedAllow") or []
-                entries.append((identity, "Effective allow" + (f"; inherited: {', '.join(inherited)}" if inherited else ""), allowed))
+                entries.append((identity, "🟢 Effective allow" + (f" · inherited: {', '.join(inherited)}" if inherited else ""), allowed))
             if denied:
                 inherited = row.get("inheritedDeny") or []
-                entries.append((identity, "Effective deny" + (f"; inherited: {', '.join(inherited)}" if inherited else ""), denied))
+                entries.append((identity, "🔴 Effective deny" + (f" · inherited: {', '.join(inherited)}" if inherited else ""), denied))
             if not allowed and row.get("allow"):
-                entries.append((identity, "Explicit allow", row["allow"]))
+                entries.append((identity, "🟢 Explicit allow", row["allow"]))
             if not denied and row.get("deny"):
-                entries.append((identity, "Explicit deny", row["deny"]))
+                entries.append((identity, "🔴 Explicit deny", row["deny"]))
         if not entries:
-            return "### Permissions\n\nADO returned no decodable permission actions for this project's root token. This does not list project-group membership; ask for **permission groups** to see groups and their members. Verify the PAT's Security and Graph read scopes if you expected entries."
-        return f"### Permissions\n\nFound permissions for **{len({e[0] for e in entries})} identities**.\n\n" + markdown_table(
+            return "### 🔐 Permissions\n\n> ℹ️ ADO returned no decodable permission actions for this project's root token. This does not list project-group membership; ask for **permission groups** to see groups and their members. Verify the PAT's Security and Graph read scopes if you expected entries."
+        return f"### 🔐 Permissions\n\n✅ Found permissions for **{len({e[0] for e in entries})} identities**.\n\n" + markdown_table(
             [{"identity": i, "access": a, "permissions": p} for i, a, p in entries],
             [("identity", "Identity"), ("access", "Access"), ("permissions", "Permissions")],
         )
@@ -350,7 +410,7 @@ def format_ado_data(rows: list[dict], prompt: str = "") -> str:
         for section in rows:
             title = section["section"].title()
             if section.get("status") != "ok":
-                blocks.append(f"#### {title}\n\nUnavailable: {section.get('error', 'ADO did not return this section.')}")
+                blocks.append(f"#### ⚠️ {title}\n\n> **Unavailable:** {section.get('error', 'ADO did not return this section.')}")
                 continue
             items = section.get("items", [])
             blocks.append(f"#### {title}\n\nFound **{section.get('count', 0)}**.")
@@ -363,11 +423,14 @@ def format_ado_data(rows: list[dict], prompt: str = "") -> str:
                         "inherited": {"allow": item.get("inheritedAllow"), "deny": item.get("inheritedDeny")},
                     } for item in items]
                     fields = ["identity", "type", "explicit", "effective", "inherited"]
+                elif section["section"] == "pipeline settings" and items[0].get("section"):
+                    blocks.append(format_pipeline_settings(items))
+                    continue
                 elif section["section"] in {"environments", "library groups"}:
                     fields = [key for key in ("name", "openAccess", "authorizedPipelines", "accessError", "securityError", "securityPermissions") if key in items[0]]
                 else:
                     fields = list(items[0].keys())[:6]
-                blocks.append(markdown_table(items[:12], [(key, key.replace("_", " ").title()) for key in fields]))
+                    blocks.append(status_table(items[:12], [(key, key.replace("_", " ").title()) for key in fields]))
             if section.get("truncated"):
                 blocks.append("_Showing a sample; additional records are available in the focused query._")
         return "\n\n".join(blocks)
@@ -382,7 +445,7 @@ def format_ado_data(rows: list[dict], prompt: str = "") -> str:
 def completion_content(result: dict, prompt: str = "") -> str:
     content = result.get("answer", "")
     if result.get("findings"):
-        content += "\n\n### Summary\n\n" + "\n".join(f"- {finding}" for finding in result["findings"])
+        content += "\n\n### ✨ Summary\n\n" + "\n".join(f"- {finding}" for finding in result["findings"])
     if result.get("data"):
         content += "\n\n" + format_ado_data(result["data"], prompt)
         if result.get("truncated"):

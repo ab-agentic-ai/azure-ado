@@ -316,25 +316,100 @@ class AdoClient:
         if topic == "project groups":
             return await self.project_groups(pid)
         if topic == "pipeline settings":
-            definitions = (await self.paged(f"/{project_path}/_apis/build/definitions", {
-                "includeAllProperties": "true", "includeLatestBuilds": "true",
-            }))["items"]
-            rows = []
-            for definition in definitions:
-                repository = definition.get("repository") or {}
-                process = definition.get("process") or {}
-                latest = definition.get("latestCompletedBuild") or definition.get("latestBuild") or {}
-                variables = definition.get("variables") or {}
-                rows.append({
-                    "id": definition.get("id"), "name": definition.get("name"), "folder": definition.get("path"),
-                    "type": definition.get("type"), "queueStatus": definition.get("queueStatus"),
-                    "agentQueue": (definition.get("queue") or {}).get("name"),
-                    "repository": repository.get("name"), "defaultBranch": repository.get("defaultBranch"),
-                    "yamlFile": process.get("yamlFilename"), "variableNames": list(variables.keys()),
-                    "triggerTypes": [trigger.get("triggerType") for trigger in (definition.get("triggers") or []) if isinstance(trigger, dict)],
-                    "latestBuild": {"id": latest.get("id"), "number": latest.get("buildNumber"), "result": latest.get("result"), "finishTime": latest.get("finishTime")},
-                })
-            return rows
+            async def section(label: str, request_path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+                try:
+                    result = await self.get(request_path, params)
+                    return {"section": label, "status": "ok", "result": result}
+                except AdoError as exc:
+                    return {"section": label, "status": "unavailable", "error": str(exc)}
+
+            general, retention, build_settings, definition_page = await asyncio.gather(
+                section("Pipeline security and behavior", f"/{project_path}/_apis/build/generalsettings"),
+                section("Project run retention", f"/{project_path}/_apis/build/retention"),
+                section("Build retention defaults and limits", f"/{project_path}/_apis/build/settings"),
+                self.paged(f"/{project_path}/_apis/build/definitions", {
+                    "includeAllProperties": "true", "includeLatestBuilds": "true",
+                }),
+                return_exceptions=True,
+            )
+            report = []
+
+            def add_settings(section_result: Any, label_map: dict[str, str] | None = None) -> None:
+                if isinstance(section_result, Exception):
+                    report.append({"section": "Settings", "status": "unavailable", "error": "ADO could not read this settings section."})
+                    return
+                if section_result.get("status") != "ok":
+                    report.append(section_result)
+                    return
+                values = section_result.get("result") or {}
+                items = [{"setting": (label_map or {}).get(key, key), "value": value}
+                         for key, value in values.items() if value is not None]
+                report.append({"section": section_result["section"], "status": "ok", "count": len(items), "items": items})
+
+            general_labels = {
+                "statusBadgesArePrivate": "Disable anonymous status badge access",
+                "enforceSettableVar": "Limit variables set at queue time",
+                "enforceJobAuthScope": "Limit job authorization to this project (non-release)",
+                "enforceJobAuthScopeForReleases": "Limit job authorization to this project (release)",
+                "enforceReferencedRepoScopedToken": "Limit YAML tokens to referenced repositories",
+                "disableClassicBuildPipelineCreation": "Disable classic build pipeline creation",
+                "disableClassicReleasePipelineCreation": "Disable classic release pipeline creation",
+                "enableShellTasksArgsSanitizing": "Validate shell task arguments",
+                "publishPipelineMetadata": "Publish pipeline metadata",
+                "buildsEnabledForForks": "Enable builds for forks",
+            }
+            add_settings(general, general_labels)
+
+            if isinstance(retention, Exception):
+                report.append({"section": "Project run retention", "status": "unavailable", "error": "ADO could not read retention settings."})
+            elif retention.get("status") != "ok":
+                report.append(retention)
+            else:
+                labels = {
+                    "purgeArtifacts": "Days to keep artifacts, symbols, and attachments",
+                    "purgeRuns": "Days to keep pipeline runs",
+                    "purgePullRequestRuns": "Days to keep pull request runs",
+                    "retainRunsPerProtectedBranch": "Recent runs to retain per protected branch",
+                }
+                items = []
+                for key, title in labels.items():
+                    rule = (retention.get("result") or {}).get(key) or {}
+                    items.append({"setting": title, "value": rule.get("value"), "minimum": rule.get("min"), "maximum": rule.get("max")})
+                report.append({"section": "Project run retention", "status": "ok", "count": len(items), "items": items})
+
+            if isinstance(build_settings, Exception):
+                report.append({"section": "Build retention defaults and limits", "status": "unavailable", "error": "ADO could not read build retention defaults."})
+            elif build_settings.get("status") != "ok":
+                report.append(build_settings)
+            else:
+                values = build_settings.get("result") or {}
+                items = [{"setting": "Days to keep deleted build records", "value": values.get("daysToKeepDeletedBuildsBeforeDestroy")}]
+                for policy_name, label in (("defaultRetentionPolicy", "Default"), ("maximumRetentionPolicy", "Maximum")):
+                    policy = values.get(policy_name) or {}
+                    items.append({"setting": f"{label} build retention", "daysToKeep": policy.get("daysToKeep"), "minimumToKeep": policy.get("minimumToKeep"), "deleteBuildRecord": policy.get("deleteBuildRecord"), "deleteTestResults": policy.get("deleteTestResults")})
+                report.append({"section": "Build retention defaults and limits", "status": "ok", "count": len(items), "items": items})
+
+            if isinstance(definition_page, Exception):
+                report.append({"section": "Pipeline definitions", "status": "unavailable", "error": "ADO could not read pipeline definitions."})
+            else:
+                definitions = definition_page["items"]
+                rows = []
+                for definition in definitions:
+                    repository = definition.get("repository") or {}
+                    process = definition.get("process") or {}
+                    latest = definition.get("latestCompletedBuild") or definition.get("latestBuild") or {}
+                    variables = definition.get("variables") or {}
+                    rows.append({
+                        "id": definition.get("id"), "name": definition.get("name"), "folder": definition.get("path"),
+                        "type": definition.get("type"), "queueStatus": definition.get("queueStatus"),
+                        "agentQueue": (definition.get("queue") or {}).get("name"),
+                        "repository": repository.get("name"), "defaultBranch": repository.get("defaultBranch"),
+                        "yamlFile": process.get("yamlFilename"), "variableNames": list(variables.keys()),
+                        "triggerTypes": [trigger.get("triggerType") for trigger in (definition.get("triggers") or []) if isinstance(trigger, dict)],
+                        "latestBuild": {"id": latest.get("id"), "number": latest.get("buildNumber"), "result": latest.get("result"), "finishTime": latest.get("finishTime")},
+                    })
+                report.append({"section": "Pipeline definitions", "status": "ok", "count": len(rows), "items": rows, "truncated": definition_page.get("truncated", False)})
+            return report
         if topic == "teams":
             teams = (await self.paged(f"/{project_path}/_apis/teams", {"$mine": "false"}))["items"]
             rows = []
