@@ -70,6 +70,8 @@ docker compose -f docker-compose.yml -f docker-compose.librechat.yml --profile l
 
 **Qwen3 1.7B** runs in a local Ollama container. It interprets ADO requests and recent conversation context; the adapter executes only whitelisted read-only ADO queries using the PAT supplied to DevOps-Agent and renders the exact returned rows in readable tables. DevOps-Agent also keeps a small local memory of each user's most recently selected project and query type, so follow-ups in a new chat can use that context. It does not train or change model weights, and it does not store ADO result sets in this memory. This memory is stored in the ignored `.secrets/devops-agent-memory.sqlite3` file. No provider account or API key is needed, and ADO data stays on the Mac. In Docker Desktop on macOS, inference is CPU-only and may be slower than a hosted model. Review important permission/security interpretations against the exact table.
 
+Qwen3 is also exposed as a selectable **Qwen3 (Local)** model in LibreChat. Use that model to create a LibreChat Agent and add the built-in **Web Search** tool in the Agent Builder. Web search is configured with LibreChat's keyless public Keenable provider; search terms and public page content are sent to that service when the tool is used. DevOps-Agent remains the ADO-connected endpoint.
+
 The Qwen3 1.7B model is about 1.4 GB and licensed under Apache 2.0. See [Ollama's Qwen3 model card](https://ollama.com/library/qwen3:1.7b) and [Ollama's Docker image documentation](https://ollama.com/blog/ollama-is-now-available-as-an-official-docker-image).
 
 Create a PAT with only the Azure DevOps read scopes needed for the resources you inspect. Do not put the PAT in the repository or `.env`.

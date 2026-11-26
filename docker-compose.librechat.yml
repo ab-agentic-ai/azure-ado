@@ -58,7 +58,7 @@ services:
     restart: unless-stopped
 
   librechat:
-    image: registry.librechat.ai/librechat-ai/librechat:v0.8.9
+    image: ab-agentic-ai/librechat-composer:v0.8.9
     profiles: ["librechat"]
     ports:
       - "127.0.0.1:${LIBRECHAT_PORT:-3080}:3080"
@@ -66,6 +66,8 @@ services:
       HOST: 0.0.0.0
       PORT: "3080"
       NODE_ENV: production
+      GOOGLE_KEY: ${GOOGLE_KEY:?Set GOOGLE_KEY in .env to enable Gemini}
+      GOOGLE_MODELS: ${GOOGLE_MODELS:-gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-3.6-flash,gemini-3.8-flash}
       MONGO_URI: mongodb://librechat-mongodb:27017/LibreChat
       MEILI_HOST: http://librechat-meilisearch:7700
       RAG_API_URL: http://librechat-rag:8000
@@ -108,7 +110,9 @@ services:
   cloudflared-librechat:
     image: cloudflare/cloudflared:latest
     profiles: ["librechat"]
-    command: ["tunnel", "--no-autoupdate", "--url", "http://librechat:3080"]
+    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/cloudflare-tunnel-token"]
+    volumes:
+      - ${CLOUDFLARE_TUNNEL_TOKEN_FILE:-./.secrets/cloudflare-tunnel-token}:/run/secrets/cloudflare-tunnel-token:ro
     depends_on:
       librechat:
         condition: service_healthy

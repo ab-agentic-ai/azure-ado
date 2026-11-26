@@ -16,3 +16,43 @@ endpoints:
         - top_p
         - presence_penalty
         - frequency_penalty
+    - name: Ollama Qwen
+      apiKey: ollama
+      baseURL: http://ollama:11434/v1/
+      models:
+        default:
+          - qwen3:1.7b
+        fetch: false
+      titleConvo: true
+      titleModel: current_model
+      modelDisplayLabel: Qwen3
+
+# LibreChat's built-in search uses the keyless public Keenable service.
+# Search terms and fetched public pages are sent to that service when web search is used.
+webSearch:
+  searchProvider: keenable
+  scraperProvider: keenable
+  rerankerType: none
+  safeSearch: 1
+
+# Put the two local choices in LibreChat's in-chat model selector.
+interface:
+  modelSelect: true
+  agents:
+    use: true
+
+modelSpecs:
+  prioritize: false
+  list:
+    - name: devops-agent
+      label: DevOps-Agent
+      description: Read-only Azure DevOps assistant powered by the local Qwen router.
+      preset:
+        endpoint: DevOps-Agent
+        model: devops-agent
+    - name: qwen3-local
+      label: Qwen3
+      description: Local Qwen3 1.7B model running through Ollama.
+      preset:
+        endpoint: Ollama Qwen
+        model: qwen3:1.7b

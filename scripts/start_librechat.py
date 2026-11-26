@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Start LibreChat with the ADO API and expose it using a Cloudflare Quick Tunnel."""
+"""Start LibreChat and its account-managed Cloudflare Tunnel connector."""
 
 from __future__ import annotations
 
 import os
-import re
 import secrets
 import subprocess
 import time
@@ -19,7 +18,6 @@ COMPOSE = [
     "docker", "compose", "-f", "docker-compose.yml", "-f", "docker-compose.librechat.yml",
     "--profile", "librechat",
 ]
-TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
 LOCAL_MODEL = "qwen3:1.7b"
 
 
@@ -57,6 +55,46 @@ def ensure_configuration() -> dict[str, str]:
     secret_dir = ROOT / ".secrets"
     secret_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     values = read_env()
+    token_file_setting = values.get("CLOUDFLARE_TUNNEL_TOKEN_FILE", "").strip()
+    direct_token = values.pop("CLOUDFLARE_TUNNEL_TOKEN", "").strip()
+    token_candidate = ""
+    token_path = ROOT / ".secrets" / "cloudflare-tunnel-token"
+
+    if token_file_setting:
+        configured_path = Path(token_file_setting)
+        if not configured_path.is_absolute():
+            configured_path = ROOT / configured_path
+        if configured_path.is_file():
+            token_path = configured_path
+        elif len(token_file_setting) > 80:
+            # Older setup instructions had the user put the token value in this
+            # *_FILE variable. Migrate it into the protected file without logging it.
+            token_candidate = token_file_setting
+        else:
+            raise SystemExit(
+                "CLOUDFLARE_TUNNEL_TOKEN_FILE must point to an existing token file, "
+                "or contain the tunnel token so it can be moved into .secrets."
+            )
+
+    if direct_token:
+        token_candidate = direct_token
+    if token_candidate:
+        token_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        token_path.write_text(token_candidate.strip() + "\n")
+        token_path.chmod(0o600)
+    elif token_path.is_file():
+        token_path.chmod(0o600)
+    else:
+        raise SystemExit(
+            "Cloudflare tunnel token not found. Put CLOUDFLARE_TUNNEL_TOKEN in .env "
+            "or save the token to .secrets/cloudflare-tunnel-token."
+        )
+
+    try:
+        token_file_setting = str(token_path.relative_to(ROOT))
+    except ValueError:
+        token_file_setting = str(token_path)
+    values["CLOUDFLARE_TUNNEL_TOKEN_FILE"] = token_file_setting
     defaults = {
         "ADO_ORGANIZATION": "ab-org",
         "ADO_DEFAULT_PROJECT": "",
@@ -83,7 +121,7 @@ def ensure_configuration() -> dict[str, str]:
         if not values.get(key):
             values[key] = secrets.token_hex(size)
 
-    write_env(values, {"PAGES_ORIGIN", "ADO_API_URL", "QUICK_TUNNEL_ALLOWED_EMAIL", "CLOUDFLARE_TUNNEL_TOKEN_FILE"})
+    write_env(values, {"PAGES_ORIGIN", "ADO_API_URL", "CLOUDFLARE_TUNNEL_TOKEN"})
     return values
 
 
@@ -112,15 +150,20 @@ def wait_for_http(url: str, description: str, timeout: int = 180) -> None:
     raise SystemExit(f"{description} did not become ready at {url}: {last_error}")
 
 
-def wait_for_quick_tunnel(env: dict[str, str]) -> str:
-    deadline = time.monotonic() + 150
+def wait_for_named_tunnel(env: dict[str, str], timeout: int = 90) -> None:
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        logs = compose(["logs", "--no-color", "--tail=200", "cloudflared-librechat"], env, capture=True).stdout
-        urls = TUNNEL_PATTERN.findall(logs)
-        if urls:
-            return urls[-1]
+        logs = compose(
+            ["logs", "--no-color", "--tail=100", "cloudflared-librechat"],
+            env,
+            capture=True,
+        ).stdout
+        if "Registered tunnel connection" in logs or "Connection registered" in logs:
+            return
         time.sleep(3)
-    raise SystemExit("Cloudflare did not print a Quick Tunnel URL; inspect `docker compose logs cloudflared-librechat`.")
+    raise SystemExit(
+        "The named Cloudflare Tunnel did not connect. Inspect `docker compose logs cloudflared-librechat`."
+    )
 
 
 def wait_for_ollama(env: dict[str, str], timeout: int = 90) -> None:
@@ -147,32 +190,48 @@ def main() -> int:
     environment["LOCAL_UID"] = str(os.getuid())
     environment["LOCAL_GID"] = str(os.getgid())
 
-    compose(["pull"], environment)
+    command(["python3", "scripts/build_librechat_custom.py"], environment)
+    compose(
+        [
+            "pull",
+            "ollama",
+            "librechat-mongodb",
+            "librechat-meilisearch",
+            "librechat-vectordb",
+            "librechat-rag",
+            "cloudflared-librechat",
+        ],
+        environment,
+    )
     compose(["up", "--build", "-d", "--remove-orphans"], environment)
     wait_for_ollama(environment)
     compose(["exec", "-T", "ollama", "ollama", "pull", LOCAL_MODEL], environment)
     compose(["up", "-d", "--force-recreate", "cloudflared-librechat"], environment)
     wait_for_http(f"http://127.0.0.1:{port}/health", "LibreChat", timeout=240)
+    wait_for_named_tunnel(environment)
 
-    public_url = wait_for_quick_tunnel(environment)
-    write_env({
-        "LIBRECHAT_DOMAIN_CLIENT": public_url,
-        "LIBRECHAT_DOMAIN_SERVER": public_url,
-        "LIBRECHAT_SESSION_COOKIE_SECURE": "true",
-    })
-    environment.update(read_env())
-    compose(["up", "-d", "--no-deps", "--force-recreate", "librechat"], environment)
-    wait_for_http(f"http://127.0.0.1:{port}/health", "LibreChat", timeout=180)
-    wait_for_http(public_url, "Cloudflare Quick Tunnel", timeout=90)
-
-    URL_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    URL_FILE.write_text(public_url + "\n")
-    URL_FILE.chmod(0o600)
     print(f"LibreChat local URL: http://127.0.0.1:{port}")
-    print(f"LibreChat remote URL: {public_url}")
+    public_url = values.get("CLOUDFLARE_TUNNEL_PUBLIC_URL", "").strip().rstrip("/")
+    if public_url:
+        write_env({
+            "LIBRECHAT_DOMAIN_CLIENT": public_url,
+            "LIBRECHAT_DOMAIN_SERVER": public_url,
+            "LIBRECHAT_SESSION_COOKIE_SECURE": "true",
+        })
+        environment.update(read_env())
+        compose(["up", "-d", "--no-deps", "--force-recreate", "librechat"], environment)
+        wait_for_http(f"http://127.0.0.1:{port}/health", "LibreChat", timeout=180)
+        wait_for_http(public_url, "Cloudflare Tunnel public hostname", timeout=90)
+        URL_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        URL_FILE.write_text(public_url + "\n")
+        URL_FILE.chmod(0o600)
+        print(f"LibreChat remote URL: {public_url}")
+    else:
+        print("No public hostname is configured for this named tunnel.")
+        print("Add a Published application route in Cloudflare to http://librechat:3080.")
+        print("Then set CLOUDFLARE_TUNNEL_PUBLIC_URL in .env to that HTTPS hostname.")
     print("Create your first admin account with:")
     print("docker compose -f docker-compose.yml -f docker-compose.librechat.yml --profile librechat exec librechat npm run create-user")
-    print(f"The current tunnel URL is saved in {URL_FILE.relative_to(ROOT)} and will change when the Quick Tunnel restarts.")
     return 0
 
 
