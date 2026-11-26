@@ -10,6 +10,8 @@ services:
       AZURE_CONFIG_DIR: /tmp/azure-config
       ADO_ORGANIZATION: ${ADO_ORGANIZATION:-ab-org}
       ADO_DEFAULT_PROJECT: ${ADO_DEFAULT_PROJECT:-}
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      OLLAMA_MODEL: qwen3:1.7b
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 10s

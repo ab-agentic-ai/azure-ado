@@ -11,11 +11,11 @@ A read-only assistant for inspecting Azure DevOps configuration, served through 
 - Variable/library groups, including pipeline access and security permissions
 - Project environments and pipeline authorization
 
-The ADO adapter uses deterministic prompt matching and read-only REST calls. It does not call an LLM or change Azure DevOps configuration.
+The ADO adapter uses deterministic prompt matching and read-only REST calls. It uses the local Qwen3 open model to summarize results, then displays a readable table. If the model is unavailable, it falls back to a readable table without sending ADO data off the Mac. The ADO adapter does not change Azure DevOps configuration.
 
 ## Start LibreChat
 
-Prerequisites: Docker Desktop, Python 3, and an internet connection to pull the official LibreChat images.
+Prerequisites: Docker Desktop, Python 3, and an internet connection to pull the service images and the Qwen3 model. The local model is about 1.4 GB on disk.
 
 ```sh
 python3 scripts/start_librechat.py
@@ -41,6 +41,12 @@ docker compose -f docker-compose.yml -f docker-compose.librechat.yml --profile l
 2. Choose **Azure DevOps Read-only** as the endpoint.
 3. When LibreChat asks for the endpoint API key, enter your Azure DevOps PAT. The PAT is used as the Bearer credential for the read-only ADO query and is encrypted in LibreChat's MongoDB store.
 4. Ask for projects directly, or include a project in the request, such as `list repositories in project My Project`. You may set `ADO_DEFAULT_PROJECT` in `.env` if you usually query one project.
+
+## Local open model
+
+LibreChat includes **Local Open Model (Ollama)** using **Qwen3 1.7B**. The model runs in a local Docker container, and the API uses it to turn Azure DevOps results into a concise explanation plus a readable table. No provider account or API key is needed, and ADO results stay on the Mac. Model inference is CPU-only in Docker Desktop on macOS, so answers may take longer than a hosted model. This is a compact model; review important permission/security interpretations against the table.
+
+The Qwen3 1.7B model is about 1.4 GB and licensed under Apache 2.0. See [Ollama's Qwen3 model card](https://ollama.com/library/qwen3:1.7b) and [Ollama's Docker image documentation](https://ollama.com/blog/ollama-is-now-available-as-an-official-docker-image).
 
 Create a PAT with only the Azure DevOps read scopes needed for the resources you inspect. Do not put the PAT in the repository or `.env`.
 

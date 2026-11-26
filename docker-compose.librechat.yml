@@ -1,4 +1,12 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["librechat"]
+    volumes:
+      - ollama_models:/root/.ollama
+    mem_limit: 4g
+    restart: unless-stopped
+
   librechat-mongodb:
     image: mongo:8.0.20
     profiles: ["librechat"]
@@ -107,6 +115,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  ollama_models:
   librechat_mongodb:
   librechat_meili:
   librechat_vectordb:

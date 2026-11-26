@@ -20,6 +20,7 @@ COMPOSE = [
     "--profile", "librechat",
 ]
 TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
+LOCAL_MODEL = "qwen3:1.7b"
 
 
 def read_env() -> dict[str, str]:
@@ -120,6 +121,17 @@ def wait_for_quick_tunnel(env: dict[str, str]) -> str:
     raise SystemExit("Cloudflare did not print a Quick Tunnel URL; inspect `docker compose logs cloudflared-librechat`.")
 
 
+def wait_for_ollama(env: dict[str, str], timeout: int = 90) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            compose(["exec", "-T", "ollama", "ollama", "list"], env, capture=True)
+            return
+        except subprocess.CalledProcessError:
+            time.sleep(3)
+    raise SystemExit("The local Ollama service did not become ready; inspect `docker compose logs ollama`.")
+
+
 def main() -> int:
     values = ensure_configuration()
     try:
@@ -135,6 +147,8 @@ def main() -> int:
 
     compose(["pull"], environment)
     compose(["up", "--build", "-d", "--remove-orphans"], environment)
+    wait_for_ollama(environment)
+    compose(["exec", "-T", "ollama", "ollama", "pull", LOCAL_MODEL], environment)
     compose(["up", "-d", "--force-recreate", "cloudflared-librechat"], environment)
     wait_for_http(f"http://127.0.0.1:{port}/health", "LibreChat", timeout=240)
 
