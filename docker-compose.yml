@@ -8,6 +8,37 @@ services:
     environment:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       AZURE_CONFIG_DIR: /tmp/azure-config
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - ${HOME}/.azure:/azure-cli-config:ro
     restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ado-mcp-cloudflared
+    profiles: ["named-tunnel"]
+    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/cloudflare_tunnel_token"]
+    depends_on:
+      ado-mcp-api:
+        condition: service_healthy
+    secrets:
+      - cloudflare_tunnel_token
+    restart: unless-stopped
+
+  cloudflared-quick:
+    image: cloudflare/cloudflared:latest
+    container_name: ado-mcp-quick-tunnel
+    profiles: ["quick-tunnel"]
+    command: ["tunnel", "--no-autoupdate", "--url", "http://ado-mcp-api:8000", "--allowed-mail", "${QUICK_TUNNEL_ALLOWED_EMAIL:-quick-tunnel-disabled@example.invalid}"]
+    depends_on:
+      ado-mcp-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+secrets:
+  cloudflare_tunnel_token:
+    file: ${CLOUDFLARE_TUNNEL_TOKEN_FILE:-.secrets/cloudflare-tunnel-token}

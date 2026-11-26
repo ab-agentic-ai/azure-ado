@@ -56,7 +56,17 @@
 
 **Files:** Create `.github/workflows/pages.yml`, `docker-compose.yml`, `.gitignore`; update `README.md`.
 
-- [x] Add a GitHub Pages Actions workflow; publishing still requires the repository Pages source to be set to **GitHub Actions** and the `ADO_API_BASE_URL` variable to be configured.
+- [x] Add a GitHub Pages Actions workflow; publishing still requires the repository Pages source to be set to **GitHub Actions**.
 - [x] Configure Docker Compose to build the backend and mount Azure CLI config read-only for SSO, copying it into a temporary writable container cache.
 - [x] Document local Docker setup, PAT scopes, SSO login, API URL, GitHub Pages enablement, and Cloudflare as an optional user-managed routing step.
 - [x] Inspect the final diff and verify frontend build and Docker health.
+
+### Task 4: Automate tunnel redeploy and generated URL update
+
+**Files:** Create `scripts/redeploy.py`, `.env.example`, `frontend/public/runtime-config.js`; modify `.gitignore`, `docker-compose.yml`, `frontend/index.html`, `frontend/src/App.tsx`, `frontend/src/vite-env.d.ts`, and `README.md`.
+
+- [x] Add optional Compose profiles for a protected Quick Tunnel and named tunnel with token-file secret.
+- [x] Add a Python helper that defaults to extracting a temporary URI from Quick Tunnel logs and supports a stable named hostname/token mode.
+- [x] Update the frontend runtime URL and commit/push that public URL when it changes.
+- [x] Document that named mode needs a Cloudflare Public Hostname route; the current private CIDR route does not supply a Pages-reachable hostname.
+- [x] Verify frontend build, script compilation, and Compose profile configuration.

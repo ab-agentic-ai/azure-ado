@@ -1,6 +1,6 @@
 # ADO-MCP — Azure DevOps Compliance Agent
 
-A read-only chat assistant for inspecting Azure DevOps configuration. The React + TypeScript frontend is published on GitHub Pages; a Python FastAPI backend runs in Docker on your Mac mini and makes Azure DevOps REST API calls.
+A read-only chat assistant for inspecting Azure DevOps configuration. The React + TypeScript frontend deploys to GitHub Pages; a Python FastAPI backend runs in Docker on your Mac mini and makes Azure DevOps REST API calls.
 
 ## Capabilities
 
@@ -51,7 +51,7 @@ Open the local Vite URL, usually `http://localhost:5173`. In Connection settings
 
 ## GitHub Pages
 
-The included Actions workflow builds the `frontend` directory and deploys it to Pages when changes reach `main`. In the GitHub repository, open **Settings → Pages** and select **GitHub Actions** as the build and deployment source. Set the repository variable `ADO_API_BASE_URL` to the HTTPS API origin routed to your Mac mini (for example, your authenticated Cloudflare Access hostname). The generated site is available at `https://<owner>.github.io/azure-ado/`.
+The included Actions workflow builds the `frontend` directory and deploys it to Pages when changes reach `main`. In the GitHub repository, open **Settings → Pages** and select **GitHub Actions** as the build and deployment source. The generated site is available at `https://<owner>.github.io/azure-ado/`.
 
 For a Pages site to reach your Mac mini API, the API must have a network route and the backend CORS allowlist must include that exact Pages origin. By default the API binds to localhost and accepts local Vite origins only. Do not expose port 8000 directly to the public internet. If using your existing Cloudflare setup, route the API through an authenticated Cloudflare Access application and set `CORS_ORIGINS` to the Pages origin. The frontend sends browser credentials so a Cloudflare Access session can authorize the request. Example:
 
@@ -60,6 +60,28 @@ CORS_ORIGINS=https://your-owner.github.io docker compose up --build -d
 ```
 
 Keep tunnel credentials and DNS configuration outside this repository.
+
+## Redeploy with a generated Cloudflare URL
+
+The `cloudflared tunnel run --token ...` output belongs to your named `Mac-mini-ssh` tunnel. It reports the tunnel ID and connector status; it does not generate a web URL. Your screenshot currently shows only the private route `192.168.29.149/32`, which GitHub Pages cannot use as an API URL.
+
+To get a URL directly from `cloudflared` output, the script defaults to a **Quick Tunnel**. Quick Tunnels print a temporary `trycloudflare.com` URL, which the script parses, writes to the frontend runtime config, and pushes to `main` to trigger a Pages rebuild. Set your email in `.env` so the generated URL is protected:
+
+```sh
+cp .env.example .env
+python3 scripts/redeploy.py
+```
+
+Quick Tunnel URLs change when the tunnel restarts and are intended for development/testing, not as a stable production endpoint. The script creates a fresh URL each run and updates Pages automatically. Cloudflare documents that Quick Tunnel URLs are temporary and stop working when the process stops: [Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
+
+To use your existing named tunnel instead, add a **Public Hostname** route to `Mac-mini-ssh`, set its service to `http://ado-mcp-api:8000`, and set `ADO_API_URL` in `.env` to that hostname. Then save the tunnel token in an ignored local file and run:
+
+```sh
+python3 scripts/redeploy.py --mode named --save-token
+python3 scripts/redeploy.py --mode named
+```
+
+This named-tunnel mode uses the stable URL from the Cloudflare route; it cannot discover that hostname from the run logs. The tunnel token is prompted without echo and stored at `.secrets/cloudflare-tunnel-token`, outside source control. The API URL is public configuration, not a secret. Both modes build/start the API and tunnel containers, wait for the API health check and tunnel connection/URL, update `frontend/public/runtime-config.js`, and push the URL change to `main` when it changes.
 
 ## API
 

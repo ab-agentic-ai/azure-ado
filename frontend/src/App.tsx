@@ -22,7 +22,7 @@ const initialMessage: Message = {
 function timeLabel() { return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date()) }
 
 export default function App() {
-  const [apiBase, setApiBase] = useState(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000')
+  const [apiBase, setApiBase] = useState(window.ADO_MCP_CONFIG?.apiBaseUrl || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000')
   const [organization, setOrganization] = useState('')
   const [project, setProject] = useState('')
   const [mode, setMode] = useState<'pat' | 'sso'>('pat')
