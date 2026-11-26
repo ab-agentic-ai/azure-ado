@@ -44,7 +44,7 @@ docker compose -f docker-compose.yml -f docker-compose.librechat.yml --profile l
 
 ## Local open model
 
-LibreChat includes **Local Open Model (Ollama)** using **Qwen3 1.7B**. The model runs in a local Docker container, and the API uses it to turn Azure DevOps results into a concise explanation plus a readable table. No provider account or API key is needed, and ADO results stay on the Mac. Model inference is CPU-only in Docker Desktop on macOS, so answers may take longer than a hosted model. This is a compact model; review important permission/security interpretations against the table.
+The API uses **Qwen3 1.7B** in a local Ollama container to turn Azure DevOps results into a concise explanation plus a readable table. The model stays behind the API and is not shown as a separate LibreChat chat endpoint, so new chats go through Azure DevOps instead of giving generic model answers. No provider account or API key is needed, and ADO results stay on the Mac. Model inference is CPU-only in Docker Desktop on macOS, so answers may take longer than a hosted model. This is a compact model; review important permission/security interpretations against the table.
 
 The Qwen3 1.7B model is about 1.4 GB and licensed under Apache 2.0. See [Ollama's Qwen3 model card](https://ollama.com/library/qwen3:1.7b) and [Ollama's Docker image documentation](https://ollama.com/blog/ollama-is-now-available-as-an-official-docker-image).
 
