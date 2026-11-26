@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / ".cache" / "librechat-v0.8.9"
+PATCHES = ROOT / "scripts" / "librechat_patches"
 IMAGE = "ab-agentic-ai/librechat-composer:v0.8.9"
 TAG = "v0.8.9"
 
@@ -29,6 +30,8 @@ def apply_composer_picker_patch() -> None:
     header = SOURCE / "client/src/components/Chat/Header.tsx"
     bar = SOURCE / "client/src/components/Chat/Input/Composer/Bar.tsx"
     selector = SOURCE / "client/src/components/Chat/Menus/Endpoints/ModelSelector.tsx"
+    quota_component = SOURCE / "client/src/components/Chat/Input/GeminiQuotaIndicator.tsx"
+    shutil.copyfile(PATCHES / "GeminiQuotaIndicator.tsx", quota_component)
 
     replace_once(
         header,
@@ -42,6 +45,7 @@ def apply_composer_picker_patch() -> None:
         "import { cn } from '~/utils';\n",
         "import { cn } from '~/utils';\n"
         "import ModelSelector from '~/components/Chat/Menus/Endpoints/ModelSelector';\n"
+        "import GeminiQuotaIndicator from '~/components/Chat/Input/GeminiQuotaIndicator';\n"
         "import { useGetStartupConfig } from '~/data-provider';\n",
     )
     replace_once(
@@ -56,8 +60,14 @@ def apply_composer_picker_patch() -> None:
         "            anchorRef={anchorRef}\n          />\n        </span>\n"
         "        {/* A box rather than `contents` so it has something to move: the split\n",
         "            anchorRef={anchorRef}\n          />\n        </span>\n"
-        "        <div className=\"min-w-0 shrink\">\n"
+        "        <div className=\"flex min-w-0 shrink items-center gap-1.5\">\n"
         "          <ModelSelector startupConfig={startupConfig} />\n"
+        "          <GeminiQuotaIndicator\n"
+        "            endpoint={endpoint}\n"
+        "            model={conversation?.model}\n"
+        "            agentId={conversation?.agent_id}\n"
+        "            isSubmitting={isSubmitting}\n"
+        "          />\n"
         "        </div>\n"
         "        {/* A box rather than `contents` so it has something to move: the split\n",
     )
