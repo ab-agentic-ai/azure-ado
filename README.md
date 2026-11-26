@@ -31,6 +31,8 @@ The API binds to `127.0.0.1:8000`. Azure CLI credentials are mounted read-only a
 
 If Docker cannot read your mounted Azure CLI files, start Compose with your macOS user and group IDs: `LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) docker compose up --build -d`.
 
+After refreshing an expired SSO session with `az login`, run `docker compose restart` so the container copies the updated Azure CLI cache.
+
 To stop the service:
 
 ```sh
