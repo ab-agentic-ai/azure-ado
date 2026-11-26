@@ -1,0 +1,9 @@
+node_modules/
+frontend/dist/
+frontend/.env
+backend/.venv/
+__pycache__/
+*.py[cod]
+*.tsbuildinfo
+.env
+.DS_Store
