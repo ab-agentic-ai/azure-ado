@@ -93,7 +93,7 @@ async def query_ado(
                     kind = classify_issue(exc)
                     count = remember_agent_issue(user_id, section, kind)
                     logger.error("ADO section failed topic=%s category=%s repeats=%d", section, kind, count)
-                    return {"section": section, "status": "unavailable", "error": "The response could not be interpreted safely. A privacy-safe issue signature was saved locally.", "items": []}
+                    return {"section": section, "status": "unavailable", "error": "The response could not be interpreted. Verify the ADO access scopes and try this section directly.", "items": []}
 
             data = await asyncio.gather(*(read_section(section) for section in recipes[topic]))
         else:
@@ -103,14 +103,12 @@ async def query_ado(
         kind = classify_issue(exc)
         count = remember_agent_issue(user_id, topic, kind)
         logger.warning("ADO query failed topic=%s category=%s repeats=%d", topic, kind, count)
-        recurrence = f" This sanitized issue pattern has occurred {count} times." if count > 1 else " I saved a sanitized issue pattern locally."
-        return {"answer": str(exc) + recurrence, "error": True}
+        return {"answer": str(exc), "error": True}
     except Exception as exc:
         kind = classify_issue(exc)
         count = remember_agent_issue(user_id, topic, kind)
         logger.error("ADO query failed topic=%s category=%s repeats=%d", topic, kind, count)
-        recurrence = f" This sanitized issue pattern has occurred {count} times." if count > 1 else " I saved a sanitized issue pattern locally."
-        return {"answer": "I couldn't safely interpret the Azure DevOps response." + recurrence + " The agent will use its bounded retry and response-normalization rules on future requests. No Azure DevOps data was changed.", "error": True}
+        return {"answer": f"I couldn't interpret the Azure DevOps {topic} response. Please try again, or verify that the organization, project, and access scopes are correct.", "error": True}
     label = f" in {project}" if project and requires_project(topic) else ""
     findings = []
     if topic in COMPOSITES:
@@ -373,25 +371,39 @@ def format_ado_data(rows: list[dict], prompt: str = "") -> str:
 
     if topic == "permissions":
         entries = []
+        project_groups = next((row.get("_projectGroups", []) for row in rows if row.get("_projectGroups") is not None), [])
         for row in rows:
+            if row.get("_projectGroups") is not None:
+                continue
             identity = f"{row.get('identity', 'Unresolved identity')} ({row.get('identityType', 'Unknown')})"
             allowed, denied = row.get("effectiveAllow") or row.get("allow") or [], row.get("effectiveDeny") or row.get("deny") or []
             if allowed:
                 inherited = row.get("inheritedAllow") or []
-                entries.append((identity, "🟢 Effective allow" + (f" · inherited: {', '.join(inherited)}" if inherited else ""), allowed))
+                entries.append((identity, "🟢 Effective allow" + (f" · inherited: {', '.join(inherited)}" if inherited else ""), allowed, row.get("groupMembers", [])))
             if denied:
                 inherited = row.get("inheritedDeny") or []
-                entries.append((identity, "🔴 Effective deny" + (f" · inherited: {', '.join(inherited)}" if inherited else ""), denied))
+                entries.append((identity, "🔴 Effective deny" + (f" · inherited: {', '.join(inherited)}" if inherited else ""), denied, row.get("groupMembers", [])))
             if not allowed and row.get("allow"):
-                entries.append((identity, "🟢 Explicit allow", row["allow"]))
+                entries.append((identity, "🟢 Explicit allow", row["allow"], row.get("groupMembers", [])))
             if not denied and row.get("deny"):
-                entries.append((identity, "🔴 Explicit deny", row["deny"]))
-        if not entries:
-            return "### 🔐 Permissions\n\n> ℹ️ ADO returned no decodable permission actions for this project's root token. This does not list project-group membership; ask for **permission groups** to see groups and their members. Verify the PAT's Security and Graph read scopes if you expected entries."
-        return f"### 🔐 Permissions\n\n✅ Found permissions for **{len({e[0] for e in entries})} identities**.\n\n" + markdown_table(
-            [{"identity": i, "access": a, "permissions": p} for i, a, p in entries],
-            [("identity", "Identity"), ("access", "Access"), ("permissions", "Permissions")],
-        )
+                entries.append((identity, "🔴 Explicit deny", row["deny"], row.get("groupMembers", [])))
+        blocks = ["### 🔐 Permissions"]
+        if entries:
+            blocks.append(f"✅ Found permissions for **{len({e[0] for e in entries})} identities**.")
+            blocks.append(markdown_table(
+                [{"identity": i, "access": a, "permissions": p, "members": members or "—"} for i, a, p, members in entries],
+                [("identity", "Identity / group"), ("access", "Access"), ("permissions", "Permissions"), ("members", "Group members")],
+            ))
+        else:
+            blocks.append("> ℹ️ ADO returned no decodable permission actions for this project's root token. Group membership is listed separately when Graph access is available.")
+        if project_groups:
+            blocks.extend(["#### 👥 Project groups and members", markdown_table(
+                [{"group": group.get("name"), "count": group.get("memberCount", 0), "members": group.get("members") or "No members returned"} for group in project_groups],
+                [("group", "Group"), ("count", "Members"), ("members", "User names")],
+            )])
+        else:
+            blocks.append("_Group membership is unavailable. The PAT needs Azure DevOps Graph read access._")
+        return "\n\n".join(blocks)
 
     if topic in {"library groups", "environments"}:
         title = "Variable group access" if topic == "library groups" else "Environment access"

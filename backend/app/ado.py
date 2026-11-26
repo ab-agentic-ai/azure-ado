@@ -204,6 +204,7 @@ class AdoClient:
             descriptors = members_by_group.get(group["descriptor"], [])
             rows.append({
                 "name": group.get("displayName") or group.get("principalName") or "Unnamed group",
+                "descriptor": group.get("descriptor"),
                 "description": group.get("description"),
                 "members": [names.get(descriptor, "Unresolved member") for descriptor in descriptors],
                 "memberCount": len(descriptors),
@@ -476,7 +477,31 @@ class AdoClient:
                 rows.append(row)
             return rows
         if topic == "permissions":
-            return await self.acl_rows(PROJECT_NAMESPACE, f"$PROJECT:vstfs:///Classification/TeamProject/{pid}")
+            rows = await self.acl_rows(PROJECT_NAMESPACE, f"$PROJECT:vstfs:///Classification/TeamProject/{pid}")
+            # ACLs show which groups have access; Graph membership supplies the people
+            # inside those groups. Keep the ACL result usable if Graph is unavailable.
+            try:
+                groups = await self.project_groups(pid)
+            except AdoError:
+                groups = []
+            groups_by_descriptor = {group.get("descriptor"): group for group in groups if group.get("descriptor")}
+            groups_by_name = {str(group.get("name", "")).casefold(): group for group in groups}
+            for row in rows:
+                group = groups_by_descriptor.get(row.get("descriptor"))
+                if not group:
+                    identity = str(row.get("identity", "")).casefold()
+                    group = groups_by_name.get(identity) or next(
+                        (item for name, item in groups_by_name.items() if name and (identity.endswith("\\" + name) or name.endswith("\\" + identity))),
+                        None,
+                    )
+                if group:
+                    row["groupName"] = group.get("name")
+                    row["groupMembers"] = group.get("members", [])
+            if rows:
+                rows[0]["_projectGroups"] = groups
+            elif groups:
+                rows.append({"_projectGroups": groups})
+            return rows
         if topic == "work items":
             # Query template is fixed; user/model may only select one of these validated states.
             state = filters.get("state") if filters.get("state") in {"New", "Active", "Resolved", "Closed", "Removed"} else None
