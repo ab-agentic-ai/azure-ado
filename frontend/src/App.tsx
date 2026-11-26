@@ -23,7 +23,7 @@ function timeLabel() { return new Intl.DateTimeFormat(undefined, { hour: '2-digi
 
 export default function App() {
   const [apiBase, setApiBase] = useState(window.ADO_MCP_CONFIG?.apiBaseUrl || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000')
-  const [organization, setOrganization] = useState('')
+  const [organization, setOrganization] = useState('ab-org')
   const [project, setProject] = useState('')
   const [mode, setMode] = useState<'pat' | 'sso'>('pat')
   const [pat, setPat] = useState('')

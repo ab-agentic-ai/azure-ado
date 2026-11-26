@@ -47,7 +47,7 @@ npm install
 npm run dev
 ```
 
-Open the local Vite URL, usually `http://localhost:5173`. In Connection settings, enter the Azure DevOps organization (the part after `dev.azure.com/`), optional project, and choose PAT or CLI SSO. Set the local API URL if it differs from `http://localhost:8000`.
+Open the local Vite URL, usually `http://localhost:5173`. Connection settings default to the `ab-org` organization; you can change it there. Enter an optional project, choose PAT or CLI SSO, and set the local API URL if it differs from `http://localhost:8000`.
 
 ## GitHub Pages
 
