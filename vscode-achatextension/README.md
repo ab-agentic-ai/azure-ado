@@ -24,7 +24,7 @@ The owner of each custom agent must separately grant Remote Access. Marketplace 
 
 ## Install from VSIX
 
-1. Obtain `achat-coding-assistant-0.1.11.vsix` from the release/artifact supplied by your administrator.
+1. Obtain `achat-coding-assistant-0.1.12.vsix` from the release/artifact supplied by your administrator.
 2. In VS Code, open **Extensions** (`⇧⌘X` on macOS or `Ctrl+Shift+X` on Windows/Linux).
 3. Select the **…** menu in the Extensions view.
 4. Choose **Install from VSIX…** and select the `.vsix` file.
@@ -71,7 +71,7 @@ The API key is stored in VS Code SecretStorage, not in workspace files or settin
 
 ## Review edits and commands
 
-When you explicitly ask for code to be created or changed, AChat applies a valid file-change proposal directly to the open workspace by default and opens the first changed file. If a model returns regular Markdown source blocks instead, AChat saves each supported source block for explicit code-writing requests; it ignores shell/terminal blocks. `File:` or `Script:` headings supply filenames when present. Otherwise it infers a filename for Azure DevOps project scripts (`ado_project_details.py` for Python) or uses `generated_code.<extension>`. Existing files are never overwritten: AChat adds a numbered suffix if a suggested name already exists. This is limited to validated paths inside the workspace; shell commands are never run automatically. Set `achat.autoApplyEdits` to `false` in VS Code Settings to require the regular code-block **Save code…** flow and review proposed edits.
+When you explicitly ask for code to be created or changed, AChat applies a valid file-change proposal directly to the open workspace by default and opens the first changed file. If the first model response contains no file change, AChat makes one formatting retry for an applyable patch. Full-file proposals can create a new file or update an existing file; the extension stages each change against the current contents before applying it. If a model returns regular Markdown source blocks instead, AChat saves supported source blocks for explicit code-writing requests and ignores shell/terminal blocks. `File:` or `Script:` headings supply filenames when present. For an update request without a named path, AChat uses the active workspace file when its language matches the returned code; otherwise it uses the Azure DevOps project-script name or `generated_code.<extension>`. New-file requests never overwrite existing files and receive a numbered suffix when needed. Shell commands are never run automatically. Set `achat.autoApplyEdits` to `false` in VS Code Settings to review proposed changes before applying them.
 
 When you ask to run a shell operation, the model can return an `achat-command` proposal. Select **Review command** to inspect the full command and working directory. The command is sent to the integrated terminal only after you choose **Run in Terminal**. Review commands carefully; approved shell commands can change or remove files.
 
@@ -93,4 +93,4 @@ npm run compile
 npm run package
 ```
 
-The generated file is `achat-coding-assistant-0.1.11.vsix` in this directory. The package icon and chat header use the AChat logo in `media/achat-icon.png`.
+The generated file is `achat-coding-assistant-0.1.12.vsix` in this directory. The package icon and chat header use the AChat logo in `media/achat-icon.png`.

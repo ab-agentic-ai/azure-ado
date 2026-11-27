@@ -61,7 +61,6 @@ function validateEdit(value: unknown, workspaceRoot: string): EditProposal {
     const path = validateRelativePath(item.path, workspaceRoot);
     const targetExists = existsSync(resolve(workspaceRoot, path));
     if (typeof item.content === 'string') {
-      if (targetExists) throw new Error(`A full-file content proposal can only create a new file: ${path}.`);
       if (!item.content.trim() || item.content.length > 1_000_000 || item.content.includes('\0')) throw new Error('New file content is empty, binary, or too large.');
       return { path, content: item.content, diff: '' };
     }

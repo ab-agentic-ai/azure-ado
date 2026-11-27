@@ -2,7 +2,7 @@
   "name": "achat-coding-assistant",
   "displayName": "AChat Coding Assistant",
   "description": "Use AChat agents to understand and safely update the open VS Code workspace.",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "publisher": "ABAgenticAI",
   "icon": "media/achat-icon.png",
   "license": "UNLICENSED",
@@ -119,7 +119,7 @@
     "typecheck": "tsc --noEmit",
     "compile": "npm run typecheck && node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "package": "npm run compile && vsce package --out achat-coding-assistant-0.1.11.vsix",
+    "package": "npm run compile && vsce package --out achat-coding-assistant-0.1.12.vsix",
     "list-package": "vsce ls"
   },
   "devDependencies": {
