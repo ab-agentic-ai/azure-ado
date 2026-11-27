@@ -1,0 +1,16 @@
+.vscode/**
+.git/**
+.github/**
+src/**
+media/chat.js
+node_modules/**
+package-lock.json
+tsconfig.json
+esbuild.mjs
+.gitignore
+*.map
+**/*.map
+docs/**
+.env*
+.secrets/**
+**/*.log

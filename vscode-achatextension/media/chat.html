@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{CSP_SOURCE}}; script-src 'nonce-{{NONCE}}'; img-src {{CSP_SOURCE}} data:; font-src {{CSP_SOURCE}}; connect-src 'none';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{STYLE_URI}}">
+  <title>AChat Coding Assistant</title>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand"><span class="brand-mark">A</span><div><strong>AChat</strong><small>Coding Assistant</small></div></div>
+    <div class="toolbar-actions">
+      <button id="new-chat" class="icon-button" title="New chat" aria-label="New chat">＋</button>
+      <button id="refresh-agents" class="icon-button" title="Refresh agents" aria-label="Refresh agents">↻</button>
+      <button id="auth-button" class="text-button">Sign in</button>
+    </div>
+  </header>
+  <section class="agent-row">
+    <label for="agent-select">Agent</label>
+    <select id="agent-select" aria-label="AChat agent"><option value="">Sign in to load agents</option></select>
+    <span id="connection-status" class="status-dot" title="Not connected"></span>
+  </section>
+  <main id="conversation" aria-live="polite" aria-label="Chat messages">
+    <section id="welcome" class="welcome">
+      <div class="welcome-icon">✦</div>
+      <h2>Code with AChat</h2>
+      <p>Ask about your code, attach a selection or file, and review proposed changes before applying them.</p>
+      <div class="quick-prompts">
+        <button data-prompt="Explain the selected code and point out any risks.">Explain selected code</button>
+        <button data-prompt="Review the attached code for bugs and suggest improvements.">Review attached files</button>
+      </div>
+    </section>
+    <div id="messages"></div>
+    <div id="notices" aria-live="polite"></div>
+  </main>
+  <section class="composer-wrap">
+    <div id="attachments" class="attachments" hidden></div>
+    <div class="composer">
+      <textarea id="message-input" rows="3" placeholder="Ask about your code…" aria-label="Message AChat"></textarea>
+      <div class="composer-bottom">
+        <div class="composer-actions">
+          <button id="attach-selection" class="icon-button" title="Attach editor selection" aria-label="Attach editor selection">⌖</button>
+          <button id="attach-file" class="icon-button" title="Attach workspace file" aria-label="Attach workspace file">＋</button>
+          <span class="hint">Selected code is sent to AChat when submitted</span>
+        </div>
+        <div class="send-actions">
+          <button id="cancel" class="text-button" hidden>Stop</button>
+          <button id="send" class="send-button" title="Send message" aria-label="Send message">↑</button>
+        </div>
+      </div>
+    </div>
+    <div class="composer-footnote">Review every proposed edit. Terminal commands run only after you approve them.</div>
+  </section>
+  <script nonce="{{NONCE}}" src="{{SCRIPT_URI}}"></script>
+</body>
+</html>

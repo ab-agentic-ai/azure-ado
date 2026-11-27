@@ -26,6 +26,36 @@ endpoints:
       titleConvo: true
       titleModel: current_model
       modelDisplayLabel: Qwen3
+    - name: OpenRouter
+      apiKey: user_provided
+      baseURL: https://openrouter.ai/api/v1
+      models:
+        default:
+          - openrouter/free
+        fetch: true
+      titleConvo: true
+      titleModel: current_model
+      modelDisplayLabel: OpenRouter
+    - name: groq
+      apiKey: user_provided
+      baseURL: https://api.groq.com/openai/v1
+      models:
+        default:
+          - openai/gpt-oss-20b
+        fetch: true
+      titleConvo: true
+      titleModel: current_model
+      modelDisplayLabel: Groq
+    - name: Huggingface
+      apiKey: user_provided
+      baseURL: https://router.huggingface.co/v1
+      models:
+        default:
+          - Qwen/Qwen3-4B-Instruct-2507
+        fetch: true
+      titleConvo: true
+      titleModel: current_model
+      modelDisplayLabel: Hugging Face
   agents:
     capabilities:
       - deferred_tools
@@ -50,7 +80,7 @@ webSearch:
   rerankerType: none
   safeSearch: 1
 
-# Put the two local choices in LibreChat's in-chat model selector.
+# Put the local DevOps choices in LibreChat's in-chat model selector.
 interface:
   theme:
     version: 1
@@ -129,6 +159,11 @@ interface:
     - execute_code
   agents:
     use: true
+  remoteAgents:
+    use: true
+    create: false
+    share: false
+    public: false
   marketplace:
     use: true
 

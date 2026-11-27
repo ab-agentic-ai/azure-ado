@@ -1,0 +1,121 @@
+{
+  "name": "achat-coding-assistant",
+  "displayName": "AChat Coding Assistant",
+  "description": "Use AChat agents to understand and safely update the open VS Code workspace.",
+  "version": "0.1.0",
+  "publisher": "ABAgenticAI",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ab-agentic-ai/azure-ado.git",
+    "directory": "vscode-achatextension"
+  },
+  "keywords": ["a-chat", "coding-assistant", "azure-devops", "chat"],
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:achat.chat",
+    "onCommand:achat.open",
+    "onCommand:achat.signIn",
+    "onCommand:achat.signOut",
+    "onCommand:achat.attachSelection",
+    "onCommand:achat.attachFile",
+    "onCommand:achat.reviewEdit",
+    "onCommand:achat.runCommand"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "achat",
+          "title": "AChat",
+          "icon": "media/achat.svg"
+        }
+      ]
+    },
+    "views": {
+      "achat": [
+        {
+          "id": "achat.chat",
+          "name": "Coding Assistant",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "achat.open",
+        "title": "AChat: Open Coding Assistant"
+      },
+      {
+        "command": "achat.signIn",
+        "title": "AChat: Sign In"
+      },
+      {
+        "command": "achat.signOut",
+        "title": "AChat: Sign Out"
+      },
+      {
+        "command": "achat.attachSelection",
+        "title": "AChat: Attach Editor Selection"
+      },
+      {
+        "command": "achat.attachFile",
+        "title": "AChat: Attach File"
+      },
+      {
+        "command": "achat.reviewEdit",
+        "title": "AChat: Review Proposed Edit"
+      },
+      {
+        "command": "achat.runCommand",
+        "title": "AChat: Review Proposed Command"
+      }
+    ],
+    "configuration": {
+      "title": "AChat Coding Assistant",
+      "properties": {
+        "achat.baseUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:3080",
+          "scope": "application",
+          "description": "AChat server URL. Use the current Cloudflare Tunnel URL for remote access; Quick Tunnel URLs can change."
+        },
+        "achat.agentId": {
+          "type": "string",
+          "default": "",
+          "description": "Optional AChat remote-agent ID to select by default. Leave blank to choose an agent in the chat panel."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "compile": "npm run typecheck && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "npm run compile && vsce package --out achat-coding-assistant-0.1.0.vsix",
+    "list-package": "vsce ls"
+  },
+  "devDependencies": {
+    "@types/diff": "7.0.2",
+    "@types/node": "22.13.10",
+    "@types/vscode": "1.96.0",
+    "@vscode/vsce": "2.32.0",
+    "esbuild": "0.24.2",
+    "typescript": "5.7.3"
+  },
+  "dependencies": {
+    "diff": "7.0.0",
+    "dompurify": "3.2.4",
+    "marked": "15.0.7"
+  }
+}

@@ -30,11 +30,14 @@ def apply_composer_picker_patch() -> None:
     header = SOURCE / "client/src/components/Chat/Header.tsx"
     bar = SOURCE / "client/src/components/Chat/Input/Composer/Bar.tsx"
     selector = SOURCE / "client/src/components/Chat/Menus/Endpoints/ModelSelector.tsx"
+    selector_context = SOURCE / "client/src/components/Chat/Menus/Endpoints/ModelSelectorContext.tsx"
     server_index = SOURCE / "api/server/index.js"
     endpoint_middleware = SOURCE / "api/server/middleware/buildEndpointOption.js"
     quota_component = SOURCE / "client/src/components/Chat/Input/GeminiQuotaIndicator.tsx"
     response_theme = SOURCE / "client/src/agentic-response-theme.css"
     code_block = SOURCE / "client/src/components/Messages/Content/CodeBlock.tsx"
+    agent_grid = SOURCE / "client/src/components/Agents/AgentGrid.tsx"
+    agent_queries = SOURCE / "client/src/data-provider/Agents/queries.ts"
     index_html = SOURCE / "client/index.html"
     logo = SOURCE / "client/public/assets/logo.svg"
     achat_icon = SOURCE / "client/public/assets/achat.svg"
@@ -48,6 +51,50 @@ def apply_composer_picker_patch() -> None:
         index_html,
         "<title>LibreChat</title>",
         "<title>AChat</title>",
+    )
+
+    replace_once(
+        agent_grid,
+        "import { useMarketplaceAgentsInfiniteQuery } from '~/data-provider/Agents';\n",
+        "import { useMarketplaceAgentsInfiniteQuery } from '~/data-provider/Agents';\n"
+        "import { useAuthContext } from '~/hooks/AuthContext';\n",
+    )
+    replace_once(
+        agent_grid,
+        "  const localize = useLocalize();\n",
+        "  const localize = useLocalize();\n"
+        "  const { user } = useAuthContext();\n",
+    )
+    replace_once(
+        agent_grid,
+        "  } = useMarketplaceAgentsInfiniteQuery(queryParams);\n",
+        "  } = useMarketplaceAgentsInfiniteQuery(queryParams, undefined, user?.id ?? 'anonymous');\n",
+    )
+    replace_once(
+        agent_queries,
+        "export const useMarketplaceAgentsInfiniteQuery = (\n"
+        "  params: t.AgentListParams,\n"
+        "  config?: UseInfiniteQueryOptions<t.AgentListResponse, unknown>,\n"
+        ") => {\n"
+        "  const queryClient = useQueryClient();\n"
+        "  const queryKey = [QueryKeys.marketplaceAgents, params] as const;\n",
+        "export const useMarketplaceAgentsInfiniteQuery = (\n"
+        "  params: t.AgentListParams,\n"
+        "  config?: UseInfiniteQueryOptions<t.AgentListResponse, unknown>,\n"
+        "  cacheScope = 'anonymous',\n"
+        ") => {\n"
+        "  const queryClient = useQueryClient();\n"
+        "  const queryKey = [QueryKeys.marketplaceAgents, cacheScope, params] as const;\n",
+    )
+    replace_once(
+        agent_queries,
+        "    staleTime: 2 * 60 * 1000, // 2 minutes\n"
+        "    cacheTime: 10 * 60 * 1000, // 10 minutes\n"
+        "    refetchOnWindowFocus: false,\n",
+        "    staleTime: 0,\n"
+        "    cacheTime: 10 * 60 * 1000, // 10 minutes\n"
+        "    refetchOnMount: true,\n"
+        "    refetchOnWindowFocus: true,\n",
     )
     replace_once(
         index_html,
@@ -228,6 +275,88 @@ type CodeBlockProps = Pick<
     )
 
     replace_once(
+        selector_context,
+        "import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';\n",
+        "import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';\n",
+    )
+    replace_once(
+        selector_context,
+        "import { useGetEndpointsQuery, useListAgentsQuery } from '~/data-provider';\n",
+        "import { useGetEndpointsQuery, useMarketplaceAgentsInfiniteQuery } from '~/data-provider';\n"
+        "import { useAuthContext } from '~/hooks/AuthContext';\n"
+        "import { mapAgents } from '~/utils/map';\n",
+    )
+    replace_once(
+        selector_context,
+        "  const agentsMap = useAgentsMapContext();\n",
+        "  const agentsMapContext = useAgentsMapContext();\n",
+    )
+    replace_once(
+        selector_context,
+        "  useAgentDefaultPermissionLevel,\n",
+        "",
+    )
+    replace_once(
+        selector_context,
+        "  const permissionLevel = useAgentDefaultPermissionLevel();\n"
+        "  /**\n"
+        "   * Always query the VIEW scope so this shares one cache entry (and one paginated walk)\n"
+        "   * with `useAgentsMap` and `useMentions`. Asking for EDIT here spawned a second full\n"
+        "   * fetch under its own key, holding a duplicate copy of the whole agent list. The\n"
+        "   * marketplace's \"my agents\" framing is preserved by filtering on `isEditable`, which\n"
+        "   * the list endpoint resolves from the same ACL read it already performs.\n"
+        "   */\n"
+        "  const wantsEditableOnly = permissionLevel === PermissionBits.EDIT;\n"
+        "  const selectAgents = useCallback(\n"
+        "    (data: t.AgentListResponse) => {\n"
+        "      const list = data?.data;\n"
+        "      if (!wantsEditableOnly) {\n"
+        "        return list;\n"
+        "      }\n"
+        "      return list?.filter((agent) => agent.isEditable !== false);\n"
+        "    },\n"
+        "    [wantsEditableOnly],\n"
+        "  );\n"
+        "  const agentsQuery = useListAgentsQuery(\n"
+        "    { requiredPermission: PermissionBits.VIEW },\n"
+        "    { select: selectAgents, enabled: agentsReady },\n"
+        "  );\n",
+        "  const { user } = useAuthContext();\n"
+        "  const agentsQuery = useMarketplaceAgentsInfiniteQuery(\n"
+        "    { requiredPermission: PermissionBits.VIEW, limit: 100, sort: 'newest' },\n"
+        "    { enabled: agentsReady },\n"
+        "    user?.id ?? 'anonymous',\n"
+        "  );\n"
+        "  const agents = useMemo(() => {\n"
+        "    if (!agentsQuery.data?.pages) return null;\n"
+        "    const seen = new Set<string>();\n"
+        "    return agentsQuery.data.pages.flatMap((page) => page.data ?? []).filter((agent) => {\n"
+        "      if (seen.has(agent.id)) return false;\n"
+        "      seen.add(agent.id);\n"
+        "      return true;\n"
+        "    });\n"
+        "  }, [agentsQuery.data?.pages]);\n"
+        "  useEffect(() => {\n"
+        "    if (agentsReady && agentsQuery.hasNextPage && !agentsQuery.isFetching && !agentsQuery.isError) {\n"
+        "      void agentsQuery.fetchNextPage({ cancelRefetch: false });\n"
+        "    }\n"
+        "  }, [agentsReady, agentsQuery.hasNextPage, agentsQuery.isFetching, agentsQuery.isError, agentsQuery.fetchNextPage]);\n"
+        "  const marketplaceAgentsMap = useMemo(\n"
+        "    () => (agents ? mapAgents(agents) : undefined),\n"
+        "    [agents],\n"
+        "  );\n"
+        "  const agentsMap = useMemo(() => {\n"
+        "    if (!marketplaceAgentsMap) return agentsMapContext;\n"
+        "    return { ...(agentsMapContext ?? {}), ...marketplaceAgentsMap };\n"
+        "  }, [agentsMapContext, marketplaceAgentsMap]);\n",
+    )
+    replace_once(
+        selector_context,
+        "    agents: agentsQuery.data ?? null,\n",
+        "    agents,\n",
+    )
+
+    replace_once(
         server_index,
         "    await updateInterfacePermissions({\n"
         "      appConfig,\n"
@@ -306,8 +435,11 @@ def main() -> None:
         "client/src/components/Chat/Header.tsx",
         "client/src/components/Chat/Input/Composer/Bar.tsx",
         "client/src/components/Chat/Menus/Endpoints/ModelSelector.tsx",
+        "client/src/components/Chat/Menus/Endpoints/ModelSelectorContext.tsx",
         "client/src/main.jsx",
         "client/src/components/Messages/Content/CodeBlock.tsx",
+        "client/src/components/Agents/AgentGrid.tsx",
+        "client/src/data-provider/Agents/queries.ts",
         "client/index.html",
         "client/public/assets/logo.svg",
         "api/server/index.js",
