@@ -35,7 +35,7 @@ export function collectSelection(editor: vscode.TextEditor): ChatContextItem | u
   }, []);
 }
 
-export async function collectFile(uri: vscode.Uri): Promise<ChatContextItem> {
+export async function collectFile(uri: vscode.Uri, maxChars = MAX_FILE_CHARS): Promise<ChatContextItem> {
   const relativePath = workspaceRelativePath(uri);
   const openDocument = vscode.workspace.textDocuments.find((document) => document.uri.toString() === uri.toString());
   let content: string;
@@ -60,16 +60,16 @@ export async function collectFile(uri: vscode.Uri): Promise<ChatContextItem> {
     path: relativePath,
     kind: 'file',
     content,
-  }, []);
+  }, [], maxChars);
 }
 
-export function limitItem(item: ChatContextItem, current: ChatContextItem[]): ChatContextItem {
+export function limitItem(item: ChatContextItem, current: ChatContextItem[], maxItemChars = item.kind === 'workspace' ? MAX_TOTAL_CONTEXT_CHARS : MAX_FILE_CHARS): ChatContextItem {
   const remainingItems = current.filter((existing) => existing.id !== item.id);
   const remaining = MAX_TOTAL_CONTEXT_CHARS - remainingItems.reduce((sum, existing) => sum + existing.content.length, 0);
   if (remaining <= 0) {
     throw new Error('The 80,000 character context limit is full. Remove an attachment before adding another.');
   }
-  const budget = Math.min(MAX_FILE_CHARS, remaining);
+  const budget = Math.min(maxItemChars, remaining);
   const content = item.content.slice(0, budget);
   return {
     ...item,

@@ -191,6 +191,12 @@ window.addEventListener('message', (event) => {
     case 'attachments':
       renderAttachments(message.items || [], message.totalChars || 0, message.maxChars || 0);
       break;
+    case 'workspacePrompt':
+      if (!input.value.trim() && typeof message.text === 'string') input.value = message.text;
+      input.style.height = 'auto';
+      input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+      input.focus();
+      break;
     case 'streamStart':
       currentAssistant = createMessage('assistant', '');
       currentAssistant.classList.add('streaming');

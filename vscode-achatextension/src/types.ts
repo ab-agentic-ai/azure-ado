@@ -25,7 +25,7 @@ export interface ChatUsage {
 export interface ChatContextItem {
   id: string;
   path: string;
-  kind: 'selection' | 'file';
+  kind: 'selection' | 'file' | 'workspace';
   content: string;
   truncated?: boolean;
 }

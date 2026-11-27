@@ -46,7 +46,7 @@ The API key is stored in VS Code SecretStorage, not in workspace files or settin
 - Ask general questions directly.
 - Select code in an editor and use **AChat: Attach Editor Selection**, or use the paperclip control to attach the active file or choose workspace files.
 - Attachments are shown in the composer and are sent only when you submit a prompt. Files outside the active workspace are rejected. Large files and total context are bounded; sensitive-looking file names require an additional confirmation.
-- To analyze local project code, select **Analyze workspace** in the composer. Choose the relevant files in the picker and confirm; only then are they attached. They are sent to AChat when you submit a prompt. Common credentials and build/dependency folders are excluded, and only supported text/source files up to 1 MB each are offered. The picker lists up to 300 files.
+- To analyze local project code, select **Analyze workspace** in the composer. It scans the open workspace automatically and shows a confirmation before adding a code snapshot. The snapshot is sent to the selected AChat agent only when you submit the prefilled analysis prompt. Common credential, build, dependency, and internal metadata folders are excluded. The snapshot is bounded to 80,000 characters and marks itself partial if the workspace is larger; use Attach File for specific omitted files.
 - The extension never scans or sends workspace contents in the background. For DevOps-Agent, ask ADO questions without attaching source files.
 
 ## Review edits and commands
@@ -72,4 +72,4 @@ npm run compile
 npm run package
 ```
 
-The generated file is `achat-coding-assistant-0.1.1.vsix` in this directory.
+The generated file is `achat-coding-assistant-0.1.2.vsix` in this directory.
