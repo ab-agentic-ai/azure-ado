@@ -157,6 +157,7 @@ function sendMessage() {
 
 document.getElementById('attach-selection').addEventListener('click', () => vscode.postMessage({ type: 'attachSelection' }));
 document.getElementById('attach-file').addEventListener('click', () => vscode.postMessage({ type: 'attachFile' }));
+document.getElementById('analyze-workspace').addEventListener('click', () => vscode.postMessage({ type: 'analyzeWorkspace' }));
 document.getElementById('refresh-agents').addEventListener('click', () => vscode.postMessage({ type: 'refreshAgents' }));
 document.getElementById('new-chat').addEventListener('click', () => vscode.postMessage({ type: 'newChat' }));
 agentSelect.addEventListener('change', () => {

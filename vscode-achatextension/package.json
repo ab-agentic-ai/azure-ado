@@ -2,7 +2,7 @@
   "name": "achat-coding-assistant",
   "displayName": "AChat Coding Assistant",
   "description": "Use AChat agents to understand and safely update the open VS Code workspace.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "ABAgenticAI",
   "license": "UNLICENSED",
   "repository": {
@@ -26,6 +26,7 @@
     "onCommand:achat.signOut",
     "onCommand:achat.attachSelection",
     "onCommand:achat.attachFile",
+    "onCommand:achat.analyzeWorkspace",
     "onCommand:achat.reviewEdit",
     "onCommand:achat.runCommand"
   ],
@@ -73,6 +74,10 @@
         "title": "AChat: Attach File"
       },
       {
+        "command": "achat.analyzeWorkspace",
+        "title": "AChat: Analyze Workspace"
+      },
+      {
         "command": "achat.reviewEdit",
         "title": "AChat: Review Proposed Edit"
       },
@@ -102,7 +107,7 @@
     "typecheck": "tsc --noEmit",
     "compile": "npm run typecheck && node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "package": "npm run compile && vsce package --out achat-coding-assistant-0.1.0.vsix",
+    "package": "npm run compile && vsce package --out achat-coding-assistant-0.1.1.vsix",
     "list-package": "vsce ls"
   },
   "devDependencies": {

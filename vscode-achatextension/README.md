@@ -24,7 +24,7 @@ The owner of each custom agent must separately grant Remote Access. Marketplace 
 
 ## Install from VSIX
 
-1. Obtain `achat-coding-assistant-0.1.0.vsix` from the release/artifact supplied by your administrator.
+1. Obtain `achat-coding-assistant-0.1.1.vsix` from the release/artifact supplied by your administrator.
 2. In VS Code, open **Extensions** (`⇧⌘X` on macOS or `Ctrl+Shift+X` on Windows/Linux).
 3. Select the **…** menu in the Extensions view.
 4. Choose **Install from VSIX…** and select the `.vsix` file.
@@ -46,7 +46,8 @@ The API key is stored in VS Code SecretStorage, not in workspace files or settin
 - Ask general questions directly.
 - Select code in an editor and use **AChat: Attach Editor Selection**, or use the paperclip control to attach the active file or choose workspace files.
 - Attachments are shown in the composer and are sent only when you submit a prompt. Files outside the active workspace are rejected. Large files and total context are bounded; sensitive-looking file names require an additional confirmation.
-- The extension does not scan the workspace automatically. For DevOps-Agent, ask ADO questions without attaching source files.
+- To analyze local project code, select **Analyze workspace** in the composer. Choose the relevant files in the picker and confirm; only then are they attached. They are sent to AChat when you submit a prompt. Common credentials and build/dependency folders are excluded, and only supported text/source files up to 1 MB each are offered. The picker lists up to 300 files.
+- The extension never scans or sends workspace contents in the background. For DevOps-Agent, ask ADO questions without attaching source files.
 
 ## Review edits and commands
 
@@ -71,4 +72,4 @@ npm run compile
 npm run package
 ```
 
-The generated file is `achat-coding-assistant-0.1.0.vsix` in this directory.
+The generated file is `achat-coding-assistant-0.1.1.vsix` in this directory.

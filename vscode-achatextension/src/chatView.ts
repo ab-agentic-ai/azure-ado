@@ -28,8 +28,15 @@ function currentBaseUrl(): string {
 
 function isSensitiveName(filePath: string): boolean {
   const name = basename(filePath).toLowerCase();
-  return name === '.env' || name.startsWith('.env.') || /\.(pem|key|p12|pfx|kdbx)$/.test(name) || name === 'id_rsa' || name === 'id_ed25519';
+  return name === '.env' || name.startsWith('.env.') || /\.(pem|key|p12|pfx|kdbx|secret|secrets)$/.test(name) || name === 'id_rsa' || name === 'id_ed25519' || name === 'credentials';
 }
+
+const WORKSPACE_TEXT_EXTENSIONS = new Set([
+  '.c', '.cc', '.cpp', '.cs', '.css', '.go', '.h', '.hpp', '.html', '.java', '.js', '.jsx', '.json', '.kt', '.md', '.mjs', '.php', '.py', '.rb', '.rs', '.scss', '.sh', '.sql', '.swift', '.toml', '.ts', '.tsx', '.txt', '.xml', '.yaml', '.yml', '.vue', '.svelte',
+]);
+const WORKSPACE_SPECIAL_FILES = new Set(['dockerfile', 'makefile', 'gemfile', 'procfile', 'justfile']);
+const WORKSPACE_EXCLUDES = '**/{.git,node_modules,.venv,venv,dist,build,out,coverage,.next,.cache,vendor,target,.secrets,secrets,.ssh,.aws}/**';
+const MAX_WORKSPACE_CANDIDATES = 300;
 
 export class ChatView implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
@@ -155,6 +162,64 @@ export class ChatView implements vscode.WebviewViewProvider {
     }
   }
 
+  async analyzeWorkspace(): Promise<void> {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders?.length) {
+      this.post({ type: 'notice', level: 'warning', text: 'Open a project folder in VS Code before analyzing workspace code.' });
+      return;
+    }
+    try {
+      const uris = await vscode.workspace.findFiles('**/*', WORKSPACE_EXCLUDES, MAX_WORKSPACE_CANDIDATES);
+      const candidates: Array<{ label: string; description: string; detail: string; uri: vscode.Uri }> = [];
+      for (const uri of uris) {
+        const relative = vscode.workspace.asRelativePath(uri, false);
+        const fileName = basename(relative).toLowerCase();
+        const extension = fileName.slice(fileName.lastIndexOf('.'));
+        if (isSensitiveName(relative) || (!WORKSPACE_TEXT_EXTENSIONS.has(extension) && !WORKSPACE_SPECIAL_FILES.has(fileName))) continue;
+        try {
+          const stat = await vscode.workspace.fs.stat(uri);
+          if (stat.type !== vscode.FileType.File || stat.size > 1_000_000) continue;
+          candidates.push({ label: relative, description: `${Math.max(1, Math.ceil(stat.size / 1024))} KB`, detail: 'Selected file contents will be added to the composer; nothing is sent until you submit a message.', uri });
+        } catch { /* Ignore files that disappear while the picker is being prepared. */ }
+      }
+      if (!candidates.length) {
+        this.post({ type: 'notice', level: 'info', text: 'No supported text or source files were found. Use Attach File to choose another file type.' });
+        return;
+      }
+      const selected = await vscode.window.showQuickPick(candidates, {
+        title: 'Analyze Workspace — choose files to attach',
+        placeHolder: `Choose source or project files (${candidates.length}${uris.length >= MAX_WORKSPACE_CANDIDATES ? '+' : ''} available)`,
+        canPickMany: true,
+        matchOnDescription: true,
+        matchOnDetail: false,
+      });
+      if (!selected?.length) return;
+      const existingPaths = new Set(this.attachments.map((item) => item.path));
+      const newPaths = selected.map((item) => item.label).filter((filePath) => !existingPaths.has(filePath));
+      if (!newPaths.length) {
+        this.post({ type: 'notice', level: 'info', text: 'Those files are already attached.' });
+        return;
+      }
+      const confirmation = await vscode.window.showWarningMessage(
+        `Attach ${newPaths.length} selected file${newPaths.length === 1 ? '' : 's'} to the composer? Their contents will be sent to AChat only when you submit your next message. Credentials and common build/dependency folders are excluded.`,
+        { modal: true },
+        'Attach selected files',
+      );
+      if (confirmation !== 'Attach selected files') return;
+      for (const candidate of selected) {
+        try {
+          const item = await collectFile(candidate.uri);
+          if (!isSensitiveName(item.path)) this.addAttachment(item);
+        } catch (error) { this.showError(error); }
+      }
+      if (uris.length >= MAX_WORKSPACE_CANDIDATES) {
+        this.post({ type: 'notice', level: 'info', text: `Showing up to ${MAX_WORKSPACE_CANDIDATES} workspace files. Narrow the project folder if the file you need is missing.` });
+      }
+    } catch (error) {
+      this.showError(error);
+    }
+  }
+
   private async showFilePicker(defaultUri: vscode.Uri): Promise<vscode.Uri[]> {
     return await vscode.window.showOpenDialog({
       defaultUri,
@@ -196,6 +261,9 @@ export class ChatView implements vscode.WebviewViewProvider {
         break;
       case 'attachFile':
         await this.attachFile();
+        break;
+      case 'analyzeWorkspace':
+        await this.analyzeWorkspace();
         break;
       case 'removeAttachment':
         if (typeof message.id === 'string') {

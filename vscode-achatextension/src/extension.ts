@@ -15,6 +15,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('achat.signOut', () => chatView.signOut()),
     vscode.commands.registerCommand('achat.attachSelection', () => chatView.attachSelection()),
     vscode.commands.registerCommand('achat.attachFile', () => chatView.attachFile()),
+    vscode.commands.registerCommand('achat.analyzeWorkspace', () => chatView.analyzeWorkspace()),
     vscode.commands.registerCommand('achat.reviewEdit', () => chatView.reviewLatestAction('edit')),
     vscode.commands.registerCommand('achat.runCommand', () => chatView.reviewLatestAction('command')),
   );
