@@ -9,26 +9,21 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="brand"><span class="brand-mark">A</span><div><strong>AChat</strong><small>Coding Assistant</small></div></div>
+    <div class="brand"><img class="brand-mark" src="{{LOGO_URI}}" alt=""><div><strong>AChat</strong><small>Coding Assistant</small></div><span id="connection-status" class="status-dot" title="Not connected" aria-label="Connection status"></span></div>
     <div class="toolbar-actions">
       <button id="new-chat" class="icon-button" title="New chat" aria-label="New chat">＋</button>
       <button id="refresh-agents" class="icon-button" title="Refresh agents" aria-label="Refresh agents">↻</button>
       <button id="auth-button" class="text-button">Sign in</button>
     </div>
   </header>
-  <section class="agent-row">
-    <label for="agent-select">Agent</label>
-    <select id="agent-select" aria-label="AChat agent"><option value="">Sign in to load agents</option></select>
-    <span id="connection-status" class="status-dot" title="Not connected"></span>
-  </section>
   <main id="conversation" aria-live="polite" aria-label="Chat messages">
     <section id="welcome" class="welcome">
-      <div class="welcome-icon">✦</div>
+      <img class="welcome-icon" src="{{LOGO_URI}}" alt="">
       <h2>Code with AChat</h2>
-      <p>Ask about your code, attach a selection or file, and review proposed changes before applying them.</p>
+      <p>Ask about this workspace. AChat gathers a fresh, bounded code snapshot when you send a message.</p>
       <div class="quick-prompts">
-        <button data-prompt="Explain the selected code and point out any risks.">Explain selected code</button>
-        <button data-prompt="Review the attached code for bugs and suggest improvements.">Review attached files</button>
+        <button data-prompt="Explain the architecture and main components of this workspace.">Explain this workspace</button>
+        <button data-prompt="Review this workspace for likely bugs, security issues, and improvement opportunities.">Find risks and bugs</button>
       </div>
     </section>
     <div id="messages"></div>
@@ -37,21 +32,25 @@
   <section class="composer-wrap">
     <div id="attachments" class="attachments" hidden></div>
     <div class="composer">
-      <textarea id="message-input" rows="3" placeholder="Ask about your code…" aria-label="Message AChat"></textarea>
+      <textarea id="message-input" rows="2" placeholder="Ask anything about this workspace…" aria-label="Message AChat"></textarea>
       <div class="composer-bottom">
         <div class="composer-actions">
           <button id="attach-selection" class="icon-button" title="Attach editor selection" aria-label="Attach editor selection">⌖</button>
           <button id="attach-file" class="icon-button" title="Attach workspace file" aria-label="Attach workspace file">＋</button>
           <button id="analyze-workspace" class="text-button" title="Scan and analyze the open workspace">Analyze workspace</button>
-          <span class="hint">Selected code is sent to AChat when submitted</span>
+          <span class="hint">Workspace context is sent when you submit</span>
         </div>
         <div class="send-actions">
+          <label class="agent-control" title="Choose an AChat agent">
+            <img src="{{LOGO_URI}}" alt="">
+            <select id="agent-select" aria-label="AChat agent"><option value="">Sign in to load agents</option></select>
+          </label>
           <button id="cancel" class="text-button" hidden>Stop</button>
           <button id="send" class="send-button" title="Send message" aria-label="Send message">↑</button>
         </div>
       </div>
     </div>
-    <div class="composer-footnote">Review every proposed edit. Terminal commands run only after you approve them.</div>
+    <div class="composer-footnote">Review proposed edits and commands before applying or running them.</div>
   </section>
   <script nonce="{{NONCE}}" src="{{SCRIPT_URI}}"></script>
 </body>

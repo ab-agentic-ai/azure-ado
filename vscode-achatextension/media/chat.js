@@ -16,6 +16,7 @@ let selectedAgentId = '';
 let attachedItems = [];
 let currentAssistant = null;
 let currentAssistantText = '';
+let lastUserBody = null;
 const renderingVersions = new WeakMap();
 let busy = false;
 
@@ -57,6 +58,7 @@ async function renderMarkdown(target, markdown) {
   });
   for (const code of target.querySelectorAll('pre code')) {
     const source = code.textContent || '';
+    const language = [...code.classList].find((name) => name.startsWith('language-'))?.slice('language-'.length) || '';
     const lines = source.replace(/\n$/, '').split('\n');
     code.replaceChildren();
     lines.forEach((line, index) => {
@@ -71,6 +73,20 @@ async function renderMarkdown(target, markdown) {
       row.append(number, text);
       code.append(row);
     });
+    const lowerLanguage = language.toLowerCase();
+    const isEditPayload = lowerLanguage === 'json' && isEditPayloadBlock(source);
+    if (!['achat-edit', 'achat-command'].includes(lowerLanguage) && !isEditPayload && source.trim()) {
+      const actions = document.createElement('div');
+      actions.className = 'code-actions';
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.className = 'save-code-button';
+      save.textContent = 'Save code…';
+      save.title = 'Preview and save this code as a new workspace file';
+      save.addEventListener('click', () => vscode.postMessage({ type: 'saveCode', code: source, language }));
+      actions.append(save);
+      code.closest('pre')?.after(actions);
+    }
   }
   conversation.scrollTop = conversation.scrollHeight;
 }
@@ -82,6 +98,15 @@ function showNotice(message, level = 'info') {
   noticesEl.append(notice);
   conversation.scrollTop = conversation.scrollHeight;
   window.setTimeout(() => notice.remove(), 9000);
+}
+
+function isEditPayloadBlock(source) {
+  try {
+    const value = JSON.parse(source);
+    return Boolean(value && Array.isArray(value.changes) && value.changes.length && value.changes.every((change) => change && typeof change.path === 'string' && typeof change.diff === 'string'));
+  } catch {
+    return false;
+  }
 }
 
 function setBusy(value) {
@@ -145,7 +170,7 @@ function sendMessage() {
   const text = input.value.trim();
   if (!text) return;
   const labels = attachedItems.map((item) => item.path);
-  createMessage('user', text, labels);
+  lastUserBody = createMessage('user', text, labels);
   document.getElementById('welcome').hidden = true;
   input.value = '';
   input.style.height = '';
@@ -198,6 +223,12 @@ window.addEventListener('message', (event) => {
       input.focus();
       break;
     case 'streamStart':
+      if (lastUserBody && message.workspaceContext && typeof message.workspaceContext.label === 'string') {
+        const contextLabel = document.createElement('span');
+        contextLabel.className = `workspace-label${message.workspaceContext.partial ? ' partial' : ''}`;
+        contextLabel.textContent = `◈ ${message.workspaceContext.label}`;
+        lastUserBody.append(contextLabel);
+      }
       currentAssistant = createMessage('assistant', '');
       currentAssistant.classList.add('streaming');
       currentAssistantText = '';
@@ -207,24 +238,40 @@ window.addEventListener('message', (event) => {
       if (currentAssistant) void renderMarkdown(currentAssistant, currentAssistantText);
       break;
     case 'complete':
-      currentAssistant?.parentElement?.classList.remove('streaming');
-      if (currentAssistant && Array.isArray(message.actions) && message.actions.length) {
-        const actions = document.createElement('div');
-        actions.className = 'proposal-actions';
-        for (const action of message.actions) {
-          if (!action || typeof action.id !== 'string') continue;
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = action.kind === 'edit' ? 'proposal-edit' : 'proposal-command';
-          button.dataset.actionId = action.id;
-          button.textContent = action.kind === 'edit' ? 'Review and apply changes' : 'Review command';
-          button.addEventListener('click', () => {
-            button.disabled = true;
-            vscode.postMessage({ type: 'reviewAction', id: action.id });
-          }, { once: true });
-          actions.append(button);
-        }
-        currentAssistant.append(actions);
+      {
+        const responseBody = currentAssistant;
+        const responseText = currentAssistantText;
+        const actionList = Array.isArray(message.actions) ? message.actions : [];
+        if (responseBody) void renderMarkdown(responseBody, responseText).then(() => {
+          responseBody.parentElement?.classList.remove('streaming');
+          if (!actionList.length || !responseBody.isConnected) return;
+          for (const action of actionList) {
+            if (typeof action?.raw !== 'string') continue;
+            const block = action.raw.match(/^```(?:achat-edit|achat-command|json)\s*\n([\s\S]*?)```$/i);
+            if (!block) continue;
+            for (const pre of responseBody.querySelectorAll('pre')) {
+              if ((pre.textContent || '').trim() !== block[1].trim()) continue;
+              pre.hidden = true;
+              if (pre.nextElementSibling?.classList.contains('code-actions')) pre.nextElementSibling.remove();
+            }
+          }
+          const actionButtons = document.createElement('div');
+          actionButtons.className = 'proposal-actions';
+          for (const action of actionList) {
+            if (!action || typeof action.id !== 'string') continue;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = action.kind === 'edit' ? 'proposal-edit' : 'proposal-command';
+            button.dataset.actionId = action.id;
+            button.textContent = action.kind === 'edit' ? 'Review and apply changes' : 'Review command';
+            button.addEventListener('click', () => {
+              button.disabled = true;
+              vscode.postMessage({ type: 'reviewAction', id: action.id });
+            }, { once: true });
+            actionButtons.append(button);
+          }
+          responseBody.append(actionButtons);
+        });
       }
       currentAssistant = null;
       currentAssistantText = '';
@@ -253,6 +300,7 @@ window.addEventListener('message', (event) => {
     case 'clear':
       messagesEl.replaceChildren();
       noticesEl.replaceChildren();
+      lastUserBody = null;
       document.getElementById('welcome').hidden = false;
       break;
   }
