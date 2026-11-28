@@ -49,7 +49,9 @@ The script generates unique LibreChat secrets in the ignored `.env`, starts the 
 
 Quick Tunnel URLs are temporary and change when the tunnel restarts. Run the script again to start a new tunnel and get its new URL. For a stable URL, configure a Cloudflare Public Hostname on a domain you own.
 
-Only LibreChat is exposed through Cloudflare. The ADO API and MongoDB ports are not public. LibreChat account registration is disabled.
+Only LibreChat is exposed through Cloudflare. The ADO API and MongoDB ports are not public. Account registration is enabled; new users receive the regular `USER` role.
+
+The LibreChat Admin Panel is available locally on the Mac mini at `http://127.0.0.1:3000`. It is bound to loopback and is not exposed through Cloudflare. Sign in with the existing LibreChat administrator account, then open **Users** to list and count registered users.
 
 ## Create your LibreChat account
 

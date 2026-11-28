@@ -105,6 +105,9 @@ def ensure_configuration() -> dict[str, str]:
         "LIBRECHAT_DOMAIN_CLIENT": "http://localhost:3080",
         "LIBRECHAT_DOMAIN_SERVER": "http://localhost:3080",
         "LIBRECHAT_SESSION_COOKIE_SECURE": "false",
+        "ADMIN_PANEL_PORT": "3000",
+        "ADMIN_PANEL_URL": "http://127.0.0.1:3000",
+        "ADMIN_PANEL_SESSION_COOKIE_SECURE": "false",
         "CORS_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
         "API_PORT": "8000",
         "APP_TITLE": "AChat",
@@ -122,6 +125,7 @@ def ensure_configuration() -> dict[str, str]:
         ("LIBRECHAT_JWT_REFRESH_SECRET", 32),
         ("LIBRECHAT_MEILI_MASTER_KEY", 32),
         ("LIBRECHAT_RAG_DB_PASSWORD", 32),
+        ("ADMIN_PANEL_SESSION_SECRET", 32),
     ):
         if not values.get(key):
             values[key] = secrets.token_hex(size)
